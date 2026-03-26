@@ -1,0 +1,124 @@
+import { useEffect, useState } from "react";
+import { useLivePrices } from "../hooks/useLivePrices";
+import { AlertsPage } from "../pages/AlertsPage";
+import { ContactsPage } from "../pages/ContactsPage";
+import { DashboardPage } from "../pages/DashboardPage";
+import { LoginPage } from "../pages/LoginPage";
+import { NotFoundPage } from "../pages/NotFoundPage";
+import { SettingsPage } from "../pages/SettingsPage";
+import { SignUpPage } from "../pages/SignUpPage";
+import { TradePage } from "../pages/TradePage";
+import { TransactionsPage } from "../pages/TransactionsPage";
+import { WalletPage } from "../pages/WalletPage";
+
+const NAV = [
+  { key: "dashboard", label: "Dashboard" },
+  { key: "wallet", label: "Wallet" },
+  { key: "trade", label: "Trade" },
+  { key: "transactions", label: "History" },
+  { key: "contacts", label: "Contacts" },
+  { key: "alerts", label: "Alerts" },
+  { key: "settings", label: "Settings" },
+] as const;
+
+// Normalizes the URL hash into a route key used to render the correct page.
+function getRouteFromHash() {
+  const clean = window.location.hash.replace(/^#\/?/, "").trim().toLowerCase();
+  return clean || "dashboard";
+}
+
+type MainAppProps = { route: string };
+
+// Renders the full app shell (sidebar + header) and the page body based on the current route.
+function MainApp({ route }: MainAppProps) {
+  const { prices, lastUpdated, error } = useLivePrices();
+
+  const renderPage = () => {
+    switch (route) {
+      case "dashboard":
+        return (
+          <DashboardPage
+            prices={prices}
+            lastUpdated={lastUpdated}
+            priceError={error}
+          />
+        );
+      case "wallet":
+        return <WalletPage />;
+      case "trade":
+        return <TradePage />;
+      case "transactions":
+      case "history":
+        return <TransactionsPage />;
+      case "contacts":
+        return <ContactsPage />;
+      case "alerts":
+        return <AlertsPage />;
+      case "settings":
+        return <SettingsPage />;
+      default:
+        return <NotFoundPage />;
+    }
+  };
+
+  const pageTitle = NAV.find((item) => item.key === route)?.label ?? "Not Found";
+
+  return (
+    <main className="app-shell">
+      <aside className="sidebar card">
+        <div>
+          <h1 className="brand">Crypto Wallet</h1>
+          <nav className="side-nav">
+            <a href="#/login">Login</a>
+            <a href="#/signup">Sign up</a>
+            {NAV.map((item) => (
+              <a key={item.key} href={`#/${item.key}`} className={route === item.key ? "active" : ""}>
+                {item.label}
+              </a>
+            ))}
+          </nav>
+        </div>
+        <div className="user-block">
+          <div className="avatar" />
+          <span>Account</span>
+        </div>
+      </aside>
+
+      <section className="content">
+        <header className="content-header card">
+          <h2>{pageTitle}</h2>
+          <div className="header-actions">
+            <button type="button" className="chip">
+              Notifications
+            </button>
+            <button type="button" className="chip secondary">
+              Settings
+            </button>
+          </div>
+        </header>
+        {renderPage()}
+      </section>
+    </main>
+  );
+}
+
+// Top-level route switch: when user navigates to #/login or #/signup, we hide the app shell.
+export function App() {
+  const [route, setRoute] = useState(getRouteFromHash());
+
+  useEffect(() => {
+    const onHashChange = () => setRoute(getRouteFromHash());
+    window.addEventListener("hashchange", onHashChange);
+    return () => window.removeEventListener("hashchange", onHashChange);
+  }, []);
+
+  if (route === "login") {
+    return <LoginPage />;
+  }
+
+  if (route === "signup") {
+    return <SignUpPage />;
+  }
+
+  return <MainApp route={route} />;
+}
