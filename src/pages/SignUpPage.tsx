@@ -36,8 +36,10 @@ export function SignUpPage() {
   if (success) {
     return (
       <div style={{ maxWidth: "400px", margin: "100px auto", padding: "20px" }}>
-        <p>You have made an account <strong>{email}</strong></p>
-        <a href="#/login">Back to Login</a>
+        <h2>Welcome to CryptoWallet!</h2>
+        <p>Your account has been created successfully.</p>
+        <p>You're one step away from managing your first crypto wallet.</p>
+        <a href="#/login">Login to get started</a>
       </div>
     )
   }
