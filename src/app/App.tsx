@@ -10,6 +10,7 @@ import { SignUpPage } from "../pages/SignUpPage";
 import { TradePage } from "../pages/TradePage";
 import { TransactionsPage } from "../pages/TransactionsPage";
 import { WalletPage } from "../pages/WalletPage";
+import { supabase } from "../services/supabaseClient";
 
 const NAV = [
   { key: "dashboard", label: "Dashboard" },
@@ -21,7 +22,6 @@ const NAV = [
   { key: "settings", label: "Settings" },
 ] as const;
 
-// Normalizes the URL hash into a route key used to render the correct page.
 function getRouteFromHash() {
   const clean = window.location.hash.replace(/^#\/?/, "").trim().toLowerCase();
   return clean || "dashboard";
@@ -29,9 +29,18 @@ function getRouteFromHash() {
 
 type MainAppProps = { route: string };
 
-// Renders the full app shell (sidebar + header) and the page body based on the current route.
 function MainApp({ route }: MainAppProps) {
   const { prices, lastUpdated, error } = useLivePrices();
+  const [user, setUser] = useState<any>(null);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setUser(data.user))
+  }, [])
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut()
+    window.location.hash = "#/login"
+  }
 
   const renderPage = () => {
     switch (route) {
@@ -69,8 +78,14 @@ function MainApp({ route }: MainAppProps) {
         <div>
           <h1 className="brand">Crypto Wallet</h1>
           <nav className="side-nav">
-            <a href="#/login">Login</a>
-            <a href="#/signup">Sign up</a>
+            {user ? (
+              <button onClick={handleLogout}>Logout</button>
+            ) : (
+              <>
+                <a href="#/login">Login</a>
+                <a href="#/signup">Sign up</a>
+              </>
+            )}
             {NAV.map((item) => (
               <a key={item.key} href={`#/${item.key}`} className={route === item.key ? "active" : ""}>
                 {item.label}
@@ -80,7 +95,7 @@ function MainApp({ route }: MainAppProps) {
         </div>
         <div className="user-block">
           <div className="avatar" />
-          <span>Account</span>
+          <span>{user ? user.email : "Account"}</span>
         </div>
       </aside>
 
@@ -102,7 +117,6 @@ function MainApp({ route }: MainAppProps) {
   );
 }
 
-// Top-level route switch: when user navigates to #/login or #/signup, we hide the app shell.
 export function App() {
   const [route, setRoute] = useState(getRouteFromHash());
 
