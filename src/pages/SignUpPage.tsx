@@ -36,8 +36,7 @@ export function SignUpPage() {
   if (success) {
     return (
       <div style={{ maxWidth: "400px", margin: "100px auto", padding: "20px" }}>
-        <h2>Check your email</h2>
-        <p>We sent a confirmation link to <strong>{email}</strong></p>
+        <p>You have made an account <strong>{email}</strong></p>
         <a href="#/login">Back to Login</a>
       </div>
     )
