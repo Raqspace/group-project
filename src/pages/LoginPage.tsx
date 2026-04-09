@@ -53,6 +53,9 @@ export function LoginPage() {
       <p style={{ marginTop: "10px" }}>
         Don't have an account? <a href="#/signup">Sign up</a>
       </p>
+      <p style={{ marginTop: "10px" }}>
+        <a href="#/home">Back to home</a>
+      </p>
     </div>
   )
 }

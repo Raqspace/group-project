@@ -3,6 +3,7 @@ import { useLivePrices } from "../hooks/useLivePrices";
 import { AlertsPage } from "../pages/AlertsPage";
 import { ContactsPage } from "../pages/ContactsPage";
 import { DashboardPage } from "../pages/DashboardPage";
+import { LandingPage } from "../pages/LandingPage";
 import { LoginPage } from "../pages/LoginPage";
 import { NotFoundPage } from "../pages/NotFoundPage";
 import { SettingsPage } from "../pages/SettingsPage";
@@ -24,7 +25,7 @@ const NAV = [
 
 function getRouteFromHash() {
   const clean = window.location.hash.replace(/^#\/?/, "").trim().toLowerCase();
-  return clean || "dashboard";
+  return clean || "home";
 }
 
 type MainAppProps = { route: string };
@@ -32,14 +33,24 @@ type MainAppProps = { route: string };
 function MainApp({ route }: MainAppProps) {
   const { prices, lastUpdated, error } = useLivePrices();
   const [user, setUser] = useState<any>(null);
+  const [authChecked, setAuthChecked] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setUser(data.user))
-  }, [])
+    supabase.auth.getUser().then(({ data }) => {
+      setUser(data.user);
+      setAuthChecked(true);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (authChecked && !user) {
+      window.location.hash = "#/home";
+    }
+  }, [authChecked, user]);
 
   const handleLogout = async () => {
-    await supabase.auth.signOut()
-    window.location.hash = "#/login"
+    await supabase.auth.signOut();
+    window.location.hash = "#/login";
   }
 
   const renderPage = () => {
@@ -72,6 +83,10 @@ function MainApp({ route }: MainAppProps) {
 
   const pageTitle = NAV.find((item) => item.key === route)?.label ?? "Not Found";
 
+  if (!authChecked) {
+    return null;
+  }
+
   return (
     <main className="app-shell">
       <aside className="sidebar card">
@@ -79,18 +94,21 @@ function MainApp({ route }: MainAppProps) {
           <h1 className="brand">Crypto Wallet</h1>
           <nav className="side-nav">
             {user ? (
-              <button onClick={handleLogout}>Logout</button>
+              <>
+                <button onClick={handleLogout}>Logout</button>
+                {NAV.map((item) => (
+                  <a key={item.key} href={`#/${item.key}`} className={route === item.key ? "active" : ""}>
+                    {item.label}
+                  </a>
+                ))}
+              </>
             ) : (
               <>
+                <a href="#/home" className={route === "home" ? "active" : ""}>Home</a>
                 <a href="#/login">Login</a>
                 <a href="#/signup">Sign up</a>
               </>
             )}
-            {NAV.map((item) => (
-              <a key={item.key} href={`#/${item.key}`} className={route === item.key ? "active" : ""}>
-                {item.label}
-              </a>
-            ))}
           </nav>
         </div>
         <div className="user-block">
@@ -132,6 +150,10 @@ export function App() {
 
   if (route === "signup") {
     return <SignUpPage />;
+  }
+
+  if (route === "home") {
+    return <LandingPage />;
   }
 
   return <MainApp route={route} />;

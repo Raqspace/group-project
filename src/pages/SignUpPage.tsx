@@ -40,6 +40,9 @@ export function SignUpPage() {
         <p>Your account has been created successfully.</p>
         <p>You're one step away from managing your first crypto wallet.</p>
         <a href="#/login">Login to get started</a>
+        <p style={{ marginTop: "10px" }}>
+          <a href="#/home">Back to home</a>
+        </p>
       </div>
     )
   }
@@ -80,6 +83,9 @@ export function SignUpPage() {
 
       <p style={{ marginTop: "10px" }}>
         Already have an account? <a href="#/login">Login</a>
+      </p>
+      <p style={{ marginTop: "10px" }}>
+        <a href="#/home">Back to home</a>
       </p>
     </div>
   )
