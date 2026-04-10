@@ -303,7 +303,7 @@ export function LandingPage() {
             </div>
             <h1 className="landing-h1">Learn cryptocurrency wallet workflows in a simulated environment.</h1>
             <p className="landing-lead">
-              CryptoWallet is an instructional simulator, not a live trading venue. Review balances, complete simulated transfer exercises, explore trade concepts, and configure price notifications without committing capital. Sign in to continue with your account, or open the demo page for an empty workspace.
+              CryptoWallet is an instructional simulator, not a live trading venue. Review balances, complete simulated transfer exercises, explore trade concepts, and configure price notifications without committing capital. Sign in to continue with your account, or visit the demo page to access a demonstrator workspace without registration.
             </p>
             <div className="landing-actions">
               <a className="landing-btn landing-btn-primary" href="#/signup">
@@ -313,7 +313,7 @@ export function LandingPage() {
                 Log in
               </a>
               <a className="landing-btn landing-btn-ghost" href="#/demo">
-                Open demo page
+                Demo / Demonstrator
               </a>
             </div>
           </div>
