@@ -5,6 +5,7 @@ import { supabase } from "../services/supabaseClient"
 export function WalletPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
+  const [success, setSuccess] = useState("")
   const [wallet, setWallet] = useState(null)
   const [recipientAddress, setRecipientAddress] = useState("")
   const [sendAmount, setSendAmount] = useState("")
@@ -40,6 +41,7 @@ export function WalletPage() {
   const handleCreateWallet = async () => {
     setLoading(true)
     setError("")
+    setSuccess("")
 
     const { data: { user } } = await supabase.auth.getUser()
 
@@ -66,7 +68,7 @@ export function WalletPage() {
       .insert({
         user_id: user.id,
         public_address: generateWalletAddress(),
-        balance: 100
+        balance: 0
       })
 
     if (walletError) {
@@ -75,8 +77,23 @@ export function WalletPage() {
       return
     }
 
-    loadWallet()
+    const { data: newWallet } = await supabase
+      .from("Wallet")
+      .select("id")
+      .eq("user_id", user.id)
+      .single()
+
+    await supabase.from("holdings").insert([
+      { wallet_id: newWallet.id, symbol: "BTC", amount: 0.001 },
+      { wallet_id: newWallet.id, symbol: "ETH", amount: 1.5 },
+      { wallet_id: newWallet.id, symbol: "XRP", amount: 100 }
+    ])
+
     setLoading(false)
+    setSuccess("✅ Wallet created successfully! Redirecting to your portfolio...")
+    setTimeout(() => {
+      window.location.hash = "#/portfolio"
+    }, 2000)
   }
 
   const handleSend = async () => {
@@ -141,7 +158,10 @@ export function WalletPage() {
         <h2>Welcome to Your Crypto Wallet</h2>
         <p>You don't have a wallet yet. Create one to get started.</p>
         {error && <p style={{ color: "red" }}>{error}</p>}
-        <button onClick={handleCreateWallet} disabled={loading}
+        {success && <p style={{ color: "green", marginTop: "10px" }}>{success}</p>}
+        <button
+          onClick={handleCreateWallet}
+          disabled={loading}
           style={{ marginTop: "20px", padding: "12px 24px", fontSize: "16px" }}>
           {loading ? "Creating your wallet..." : "Create My Wallet"}
         </button>
@@ -151,15 +171,12 @@ export function WalletPage() {
 
   return (
     <div style={{ maxWidth: "700px", margin: "40px auto", padding: "20px" }}>
-
-      {/* Wallet Info */}
       <div style={{ background: "#f5f5f5", padding: "20px", borderRadius: "8px", marginBottom: "30px" }}>
         <h2>My Wallet</h2>
         <p><strong>Address:</strong> {wallet.public_address}</p>
         <p><strong>Balance:</strong> {wallet.balance} ETH</p>
       </div>
 
-      {/* Send */}
       <div style={{ marginBottom: "30px" }}>
         <h3>Send Crypto</h3>
         {sendError && <p style={{ color: "red" }}>{sendError}</p>}
@@ -183,7 +200,6 @@ export function WalletPage() {
         </button>
       </div>
 
-      {/* Receive */}
       <div style={{ marginBottom: "30px" }}>
         <h3>Receive Crypto</h3>
         <p>Share your address to receive crypto:</p>
@@ -196,7 +212,6 @@ export function WalletPage() {
           Copy Address
         </button>
       </div>
-
     </div>
   )
 }

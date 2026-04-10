@@ -5,6 +5,7 @@ import { ContactsPage } from "../pages/ContactsPage";
 import { DashboardPage } from "../pages/DashboardPage";
 import { LoginPage } from "../pages/LoginPage";
 import { NotFoundPage } from "../pages/NotFoundPage";
+import { PortfolioPage } from "../pages/PortfolioPage";
 import { SettingsPage } from "../pages/SettingsPage";
 import { SignUpPage } from "../pages/SignUpPage";
 import { TradePage } from "../pages/TradePage";
@@ -15,6 +16,7 @@ import { supabase } from "../services/supabaseClient";
 const NAV = [
   { key: "dashboard", label: "Dashboard" },
   { key: "wallet", label: "Wallet" },
+  { key: "portfolio", label: "Portfolio" },
   { key: "trade", label: "Trade" },
   { key: "transactions", label: "History" },
   { key: "contacts", label: "Contacts" },
@@ -32,9 +34,20 @@ type MainAppProps = { route: string };
 function MainApp({ route }: MainAppProps) {
   const { prices, lastUpdated, error } = useLivePrices();
   const [user, setUser] = useState<any>(null);
+  const [hasWallet, setHasWallet] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setUser(data.user))
+    supabase.auth.getUser().then(async ({ data }) => {
+      setUser(data.user)
+      if (data.user) {
+        const { data: walletData } = await supabase
+          .from("Wallet")
+          .select("id")
+          .eq("user_id", data.user.id)
+          .single()
+        setHasWallet(!!walletData)
+      }
+    })
   }, [])
 
   const handleLogout = async () => {
@@ -54,6 +67,8 @@ function MainApp({ route }: MainAppProps) {
         );
       case "wallet":
         return <WalletPage />;
+      case "portfolio":
+        return <PortfolioPage />;
       case "trade":
         return <TradePage />;
       case "transactions":
@@ -86,11 +101,15 @@ function MainApp({ route }: MainAppProps) {
                 <a href="#/signup">Sign up</a>
               </>
             )}
-            {NAV.map((item) => (
-              <a key={item.key} href={`#/${item.key}`} className={route === item.key ? "active" : ""}>
-                {item.label}
-              </a>
-            ))}
+            {NAV.map((item) => {
+              if (item.key === "wallet" && hasWallet) return null
+              if (item.key === "portfolio" && !hasWallet) return null
+              return (
+                <a key={item.key} href={`#/${item.key}`} className={route === item.key ? "active" : ""}>
+                  {item.label}
+                </a>
+              )
+            })}
           </nav>
         </div>
         <div className="user-block">
@@ -124,7 +143,7 @@ export function App() {
     const onHashChange = () => setRoute(getRouteFromHash());
     window.addEventListener("hashchange", onHashChange);
     return () => window.removeEventListener("hashchange", onHashChange);
-  }, []);
+  }, [route]);
 
   if (route === "login") {
     return <LoginPage />;
