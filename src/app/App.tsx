@@ -3,6 +3,7 @@ import { useLivePrices } from "../hooks/useLivePrices";
 import { AlertsPage } from "../pages/AlertsPage";
 import { ContactsPage } from "../pages/ContactsPage";
 import { DashboardPage } from "../pages/DashboardPage";
+import { DemoPage } from "../pages/DemoPage";
 import { LandingPage } from "../pages/LandingPage";
 import { LoginPage } from "../pages/LoginPage";
 import { NotFoundPage } from "../pages/NotFoundPage";
@@ -154,6 +155,10 @@ export function App() {
 
   if (route === "home") {
     return <LandingPage />;
+  }
+
+  if (route === "demo") {
+    return <DemoPage />;
   }
 
   return <MainApp route={route} />;
