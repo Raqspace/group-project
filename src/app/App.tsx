@@ -110,15 +110,11 @@ function MainApp({ route }: MainAppProps) {
             {user ? (
               <>
                 <button onClick={handleLogout}>Logout</button>
-                {NAV.map((item) => {
-                  if (item.key === "wallet" && !hasWallet) return null
-                  if (item.key === "portfolio" && !hasWallet) return null
-                  return (
-                    <a key={item.key} href={`#/${item.key}`} className={route === item.key ? "active" : ""}>
-                      {item.label}
-                    </a>
-                  )
-                })}
+                {NAV.map((item) => (
+                  <a key={item.key} href={`#/${item.key}`} className={route === item.key ? "active" : ""}>
+                    {item.label}
+                  </a>
+                ))}
               </>
             ) : (
               <>
