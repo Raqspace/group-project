@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLivePrices } from "../hooks/useLivePrices";
+import { buildUnitPrices } from "../utils/unitPrices";
 import { AlertsPage } from "../pages/AlertsPage";
 import { ContactsPage } from "../pages/ContactsPage";
 import { DashboardPage } from "../pages/DashboardPage";
@@ -14,6 +15,7 @@ import { TradePage } from "../pages/TradePage";
 import { TransactionsPage } from "../pages/TransactionsPage";
 import { WalletPage } from "../pages/WalletPage";
 import { supabase } from "../services/supabaseClient";
+import { requestTour, type TourPage } from "../utils/tourBus";
 
 const NAV = [
   { key: "dashboard", label: "Dashboard" },
@@ -35,9 +37,27 @@ type MainAppProps = { route: string };
 
 function MainApp({ route }: MainAppProps) {
   const { prices, lastUpdated, error } = useLivePrices();
+  const [xrpUsd, setXrpUsd] = useState(0);
   const [user, setUser] = useState<any>(null);
   const [authChecked, setAuthChecked] = useState(false);
   const [hasWallet, setHasWallet] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("https://api.coingecko.com/api/v3/simple/price?ids=ripple&vs_currencies=usd")
+      .then((r) => r.json())
+      .then((j) => {
+        if (!cancelled && typeof j?.ripple?.usd === "number") {
+          setXrpUsd(j.ripple.usd);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setXrpUsd(0.5);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data }) => {
@@ -65,12 +85,15 @@ function MainApp({ route }: MainAppProps) {
     window.location.hash = "#/login";
   }
 
+  const unitPrices = useMemo(() => buildUnitPrices(prices, xrpUsd), [prices, xrpUsd]);
+
   const renderPage = () => {
     switch (route) {
       case "dashboard":
         return (
           <DashboardPage
             prices={prices}
+            unitPrices={unitPrices}
             lastUpdated={lastUpdated}
             priceError={error}
           />
@@ -78,7 +101,7 @@ function MainApp({ route }: MainAppProps) {
       case "wallet":
         return <WalletPage />;
       case "portfolio":
-        return <PortfolioPage />;
+        return <PortfolioPage unitPrices={unitPrices} />;
       case "trade":
         return <TradePage />;
       case "transactions":
@@ -96,6 +119,9 @@ function MainApp({ route }: MainAppProps) {
   };
 
   const pageTitle = NAV.find((item) => item.key === route)?.label ?? "Not Found";
+
+  const tipPages: TourPage[] = ["dashboard", "portfolio", "wallet"];
+  const showPageTips = user && tipPages.includes(route as TourPage);
 
   if (!authChecked) {
     return null;
@@ -135,6 +161,16 @@ function MainApp({ route }: MainAppProps) {
         <header className="content-header card">
           <h2>{pageTitle}</h2>
           <div className="header-actions">
+            {showPageTips ? (
+              <button
+                type="button"
+                className="chip secondary"
+                title="Replay short explanations for this screen"
+                onClick={() => requestTour(route as TourPage)}
+              >
+                Page tips
+              </button>
+            ) : null}
             <button type="button" className="chip">
               Notifications
             </button>

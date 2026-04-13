@@ -1,0 +1,115 @@
+.walkthrough-popup-root {
+  position: fixed;
+  z-index: 2000;
+  max-width: min(320px, calc(100vw - 24px));
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.18), 0 0 1px rgba(0, 0, 0, 0.08);
+  padding: 14px 36px 14px 14px;
+  font-family: Inter, system-ui, sans-serif;
+  color: #2e2e2d;
+}
+
+.walkthrough-popup-root.walkthrough-tail-bottom::after {
+  content: "";
+  position: absolute;
+  bottom: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 10px solid transparent;
+  border-right: 10px solid transparent;
+  border-top: 10px solid #fff;
+  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.06));
+}
+
+.walkthrough-popup-root.walkthrough-tail-top::after {
+  content: "";
+  position: absolute;
+  top: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 10px solid transparent;
+  border-right: 10px solid transparent;
+  border-bottom: 10px solid #fff;
+  filter: drop-shadow(0 -1px 2px rgba(0, 0, 0, 0.06));
+}
+
+.walkthrough-popup-close {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  border: none;
+  background: none;
+  color: #9ca3af;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 4px;
+}
+
+.walkthrough-popup-close:hover {
+  color: #4b5563;
+}
+
+.walkthrough-popup-title {
+  margin: 0 0 8px;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.walkthrough-popup-body {
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.45;
+  color: #4b5563;
+}
+
+.walkthrough-popup-hint {
+  margin: 10px 0 0;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  color: #9ca3af;
+}
+
+.walkthrough-popup-footer {
+  margin-top: 12px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.walkthrough-popup-next {
+  border: 1px solid #87a69a;
+  background: #d6ece4;
+  color: #2f5247;
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-weight: 600;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.walkthrough-popup-next:hover {
+  background: #c5e4d8;
+}
+
+.walkthrough-popup-skip {
+  border: none;
+  background: none;
+  color: #6b7280;
+  font-size: 0.8rem;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.walkthrough-dim {
+  position: fixed;
+  inset: 0;
+  background: rgba(46, 46, 45, 0.12);
+  z-index: 1999;
+  pointer-events: none;
+}
