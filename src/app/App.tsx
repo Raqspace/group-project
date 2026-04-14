@@ -5,6 +5,7 @@ import { AlertsPage } from "../pages/AlertsPage";
 import { ContactsPage } from "../pages/ContactsPage";
 import { DashboardPage } from "../pages/DashboardPage";
 import { DemoPage } from "../pages/DemoPage";
+import { DepositPage } from "../pages/DepositPage";
 import { LandingPage } from "../pages/LandingPage";
 import { LoginPage } from "../pages/LoginPage";
 import { NotFoundPage } from "../pages/NotFoundPage";
@@ -21,6 +22,7 @@ const NAV = [
   { key: "dashboard", label: "Dashboard" },
   { key: "wallet", label: "Wallet" },
   { key: "portfolio", label: "Portfolio" },
+  { key: "deposit", label: "Deposit" },
   { key: "trade", label: "Trade" },
   { key: "transactions", label: "History" },
   { key: "contacts", label: "Contacts" },
@@ -102,6 +104,8 @@ function MainApp({ route }: MainAppProps) {
         return <WalletPage />;
       case "portfolio":
         return <PortfolioPage unitPrices={unitPrices} />;
+      case "deposit":
+        return <DepositPage />;
       case "trade":
         return <TradePage />;
       case "transactions":

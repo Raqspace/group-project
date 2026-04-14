@@ -226,6 +226,12 @@ export function WalletPage() {
         <p>
           <strong>Address:</strong> {wallet.public_address}
         </p>
+        <p style={{ marginTop: "12px", fontSize: "1.2rem" }}>
+          <strong>GBP Balance:</strong> £{wallet.balance.toFixed(2)}
+        </p>
+        <a href="#/deposit" style={{ display: "inline-block", marginTop: "8px", fontWeight: 600 }}>
+          + Deposit Funds
+        </a>
         <div ref={balancesRef} style={{ marginTop: 14 }}>
           <strong>Holdings (amounts)</strong>
           {holdings.length === 0 ? (
