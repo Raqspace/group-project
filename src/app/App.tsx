@@ -15,7 +15,9 @@ import { SignUpPage } from "../pages/SignUpPage";
 import { TradePage } from "../pages/TradePage";
 import { TransactionsPage } from "../pages/TransactionsPage";
 import { WalletPage } from "../pages/WalletPage";
+import { TutorialProfileProvider } from "../context/TutorialProfileContext";
 import { supabase } from "../services/supabaseClient";
+import { clearSessionTourFlags, clearTutorialSessionProfileCache, pickDisplayName } from "../utils/tutorialProfile";
 import { requestTour, type TourPage } from "../utils/tourBus";
 
 const NAV = [
@@ -30,20 +32,39 @@ const NAV = [
   { key: "settings", label: "Settings" },
 ] as const;
 
+/**
+ * Hash route path only (lowercase), without query string — so `#/signup?goal=trade` still maps to `signup`.
+ */
 function getRouteFromHash() {
-  const clean = window.location.hash.replace(/^#\/?/, "").trim().toLowerCase();
-  return clean || "home";
+  const raw = window.location.hash.replace(/^#\/?/, "").trim().toLowerCase();
+  const path = raw.split("?")[0]?.trim() ?? "";
+  return path || "home";
 }
 
 type MainAppProps = { route: string };
+
+/** Map URL segment to tour id (`history` → same tips as transactions). */
+function routeToTourPage(route: string): TourPage | null {
+  if (route === "history") return "transactions";
+  const tipped: TourPage[] = [
+    "dashboard",
+    "portfolio",
+    "wallet",
+    "deposit",
+    "trade",
+    "transactions",
+    "contacts",
+    "alerts",
+    "settings",
+  ];
+  return tipped.includes(route as TourPage) ? (route as TourPage) : null;
+}
 
 function MainApp({ route }: MainAppProps) {
   const { prices, lastUpdated, error } = useLivePrices();
   const [xrpUsd, setXrpUsd] = useState(0);
   const [user, setUser] = useState<any>(null);
   const [authChecked, setAuthChecked] = useState(false);
-  const [hasWallet, setHasWallet] = useState(false);
-
   useEffect(() => {
     let cancelled = false;
     fetch("https://api.coingecko.com/api/v3/simple/price?ids=ripple&vs_currencies=usd")
@@ -61,19 +82,37 @@ function MainApp({ route }: MainAppProps) {
     };
   }, []);
 
+  /**
+   * Session bootstrap + live updates. `getSession` resolves the initial cookie/local session without a flash
+   * of “logged out”; `onAuthStateChange` keeps `user` in sync (refresh, sign-out elsewhere).
+   */
   useEffect(() => {
-    supabase.auth.getUser().then(async ({ data }) => {
-      setUser(data.user);
-      if (data.user) {
-        const { data: walletData } = await supabase
-          .from("Wallet")
-          .select("id")
-          .eq("user_id", data.user.id)
-          .single()
-        setHasWallet(!!walletData)
-      }
+    let cancelled = false;
+
+    const applySession = async (sessionUser: typeof user) => {
+      if (cancelled) return;
+      setUser(sessionUser);
       setAuthChecked(true);
+    };
+
+    void (async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (cancelled) return;
+      await applySession(session?.user ?? null);
+    })();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      void applySession(session?.user ?? null);
     });
+
+    return () => {
+      cancelled = true;
+      subscription.unsubscribe();
+    };
   }, []);
 
   useEffect(() => {
@@ -84,8 +123,9 @@ function MainApp({ route }: MainAppProps) {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
+    clearTutorialSessionProfileCache();
     window.location.hash = "#/login";
-  }
+  };
 
   const unitPrices = useMemo(() => buildUnitPrices(prices, xrpUsd), [prices, xrpUsd]);
 
@@ -124,11 +164,25 @@ function MainApp({ route }: MainAppProps) {
 
   const pageTitle = NAV.find((item) => item.key === route)?.label ?? "Not Found";
 
-  const tipPages: TourPage[] = ["dashboard", "portfolio", "wallet"];
-  const showPageTips = user && tipPages.includes(route as TourPage);
+  const activeTourPage = routeToTourPage(route);
+  const showPageTips = Boolean(user && activeTourPage);
 
   if (!authChecked) {
-    return null;
+    return (
+      <main className="app-shell" aria-busy="true">
+        <aside className="sidebar card" style={{ opacity: 0.72 }}>
+          <h1 className="brand">Crypto Wallet</h1>
+          <p className="live-note" style={{ marginTop: "1rem" }}>
+            Loading your session…
+          </p>
+        </aside>
+        <section className="content">
+          <p className="live-note" style={{ padding: "1.5rem" }}>
+            One moment — preparing your workspace.
+          </p>
+        </section>
+      </main>
+    );
   }
 
   return (
@@ -157,33 +211,45 @@ function MainApp({ route }: MainAppProps) {
         </div>
         <div className="user-block">
           <div className="avatar" />
-          <span>{user ? user.email : "Account"}</span>
+          {user ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0, textAlign: "left" }}>
+              <span style={{ fontWeight: 700, fontSize: "0.95rem", lineHeight: 1.2 }}>{pickDisplayName(user)}</span>
+              <span className="live-note" style={{ margin: 0, fontSize: "0.72rem", opacity: 0.85 }}>
+                {user.email}
+              </span>
+            </div>
+          ) : (
+            <span>Account</span>
+          )}
         </div>
       </aside>
 
       <section className="content">
-        <header className="content-header card">
-          <h2>{pageTitle}</h2>
-          <div className="header-actions">
-            {showPageTips ? (
-              <button
-                type="button"
-                className="chip secondary"
-                title="Replay short explanations for this screen"
-                onClick={() => requestTour(route as TourPage)}
-              >
-                Page tips
+        {/* Tutorial personalization + contextual tips: see `tutorialProfile.ts` and `TutorialProfileContext`. */}
+        <TutorialProfileProvider user={user}>
+          <header className="content-header card">
+            <h2>{pageTitle}</h2>
+            <div className="header-actions">
+              {showPageTips && activeTourPage ? (
+                <button
+                  type="button"
+                  className="chip secondary"
+                  title="Replay short explanations for this screen"
+                  onClick={() => requestTour(activeTourPage)}
+                >
+                  Page tips
+                </button>
+              ) : null}
+              <button type="button" className="chip">
+                Notifications
               </button>
-            ) : null}
-            <button type="button" className="chip">
-              Notifications
-            </button>
-            <button type="button" className="chip secondary">
-              Settings
-            </button>
-          </div>
-        </header>
-        {renderPage()}
+              <button type="button" className="chip secondary">
+                Settings
+              </button>
+            </div>
+          </header>
+          {renderPage()}
+        </TutorialProfileProvider>
       </section>
     </main>
   );

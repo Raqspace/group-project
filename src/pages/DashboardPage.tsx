@@ -2,9 +2,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { BtcSparkline7d, PortfolioAllocationBar } from "../components/dashboard/DashboardCharts";
 import type { LivePricesUsd } from "../services/prices/priceService";
 import { WalkthroughPopup } from "../components/walkthrough/WalkthroughPopup";
+import { useTutorialProfile } from "../context/TutorialProfileContext";
+import { useAutoStartPageTour } from "../hooks/useAutoStartPageTour";
 import { useWalkthroughTour } from "../hooks/useWalkthroughTour";
 import { supabase } from "../services/supabaseClient";
 import { useListenTour } from "../utils/tourBus";
+import { withPersonalizedLead } from "../utils/tutorialProfile";
 import type { UnitPricesUsd } from "../utils/unitPrices";
 import { portfolioTotalUsd } from "../utils/unitPrices";
 
@@ -41,12 +44,18 @@ export function DashboardPage({ prices, unitPrices, lastUpdated, priceError }: D
   const statRef = useRef<HTMLElement>(null);
   const chartRef = useRef<HTMLElement>(null);
   const holdingsRef = useRef<HTMLElement>(null);
-  const [userId, setUserId] = useState<string | undefined>();
   const [holdings, setHoldings] = useState<HoldingRow[]>([]);
   const [dashboardLoading, setDashboardLoading] = useState(true);
   const [btcSeries, setBtcSeries] = useState<[number, number][]>([]);
   const [btcChartLoading, setBtcChartLoading] = useState(true);
   const [btcChartError, setBtcChartError] = useState("");
+
+  const { profile } = useTutorialProfile();
+
+  const tour = useWalkthroughTour();
+  const startTour = useCallback(() => tour.start(), [tour.start]);
+  useListenTour("dashboard", startTour);
+  useAutoStartPageTour("dashboard", startTour);
 
   const priceMapForHoldings = unitToPriceMap(unitPrices);
   const totalUsd = portfolioTotalUsd(holdings, unitPrices);
@@ -111,10 +120,6 @@ export function DashboardPage({ prices, unitPrices, lastUpdated, priceError }: D
       cancelled = true;
     };
   }, []);
-
-  const tour = useWalkthroughTour();
-  const startTour = useCallback(() => tour.start(), [tour.start]);
-  useListenTour("dashboard", startTour);
 
   return (
     <>
@@ -235,7 +240,11 @@ export function DashboardPage({ prices, unitPrices, lastUpdated, priceError }: D
         <WalkthroughPopup
           anchorRef={statRef}
           title="Your total vs market prices"
-          body="Big number = all your pretend coins added up in dollars (same math as Portfolio). The three small cards are just today’s BTC, ETH, USDT prices to read. They are not extra cash on top of your total."
+          body={withPersonalizedLead(
+            profile,
+            "dashboard",
+            "Big number = all your pretend coins added up in dollars (same math as Portfolio). The three small cards are just today’s BTC, ETH, USDT prices to read. They are not extra cash on top of your total."
+          )}
           onClose={tour.finish}
           onNext={tour.next}
           showNext

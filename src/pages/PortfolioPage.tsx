@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { WalkthroughPopup } from "../components/walkthrough/WalkthroughPopup";
+import { useTutorialProfile } from "../context/TutorialProfileContext";
+import { useAutoStartPageTour } from "../hooks/useAutoStartPageTour";
 import { useWalkthroughTour } from "../hooks/useWalkthroughTour";
 import { supabase } from "../services/supabaseClient";
 import { useListenTour } from "../utils/tourBus";
+import { withPersonalizedLead } from "../utils/tutorialProfile";
 import type { UnitPricesUsd } from "../utils/unitPrices";
 import { portfolioTotalUsd } from "../utils/unitPrices";
 
@@ -38,12 +41,15 @@ export function PortfolioPage({ unitPrices }: PortfolioPageProps) {
   const [sendSuccess, setSendSuccess] = useState("");
   const [sendLoading, setSendLoading] = useState(false);
 
+  const workflowRef = useRef<HTMLDivElement>(null);
   const totalRef = useRef<HTMLDivElement>(null);
   const actionsRef = useRef<HTMLDivElement>(null);
   const holdingsRef = useRef<HTMLHeadingElement>(null);
+  const { profile } = useTutorialProfile();
   const tour = useWalkthroughTour();
   const startTour = useCallback(() => tour.start(), [tour.start]);
   useListenTour("portfolio", startTour);
+  useAutoStartPageTour("portfolio", startTour);
 
   const totalUsd = portfolioTotalUsd(holdings, unitPrices);
 
@@ -158,7 +164,37 @@ export function PortfolioPage({ unitPrices }: PortfolioPageProps) {
   }
 
   return (
-    <div style={{ maxWidth: "700px", margin: "40px auto", padding: "20px", position: "relative" }}>
+    <div style={{ maxWidth: 700, margin: "0 auto", padding: "0 0 24px", position: "relative" }}>
+      <div ref={workflowRef} className="card" style={{ marginBottom: "0.9rem" }}>
+        <p style={{ margin: 0, fontSize: "0.72rem", color: "#666764", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+          Your place in the flow
+        </p>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", alignItems: "center", marginTop: "0.65rem" }}>
+          <a href="#/deposit" className="chip secondary">
+            1 · Deposit GBP
+          </a>
+          <span style={{ color: "#8a8a85" }}>→</span>
+          <a href="#/trade" className="chip secondary">
+            2 · Trade
+          </a>
+          <span style={{ color: "#8a8a85" }}>→</span>
+          <span className="chip" style={{ cursor: "default" }}>
+            3 · Portfolio
+          </span>
+        </div>
+        <p className="live-note" style={{ marginTop: "0.75rem", marginBottom: 0 }}>
+          This screen sums your <strong>crypto holdings in USD</strong> (not your GBP cash balance). Got no rows yet?{" "}
+          <a href="#/deposit" style={{ color: "#1f3c34", fontWeight: 600 }}>
+            Deposit
+          </a>
+          , then{" "}
+          <a href="#/trade" style={{ color: "#1f3c34", fontWeight: 600 }}>
+            Trade
+          </a>
+          .
+        </p>
+      </div>
+
       <div
         ref={totalRef}
         style={{ background: "#1B3A5C", color: "white", padding: "24px", borderRadius: "8px", marginBottom: "30px" }}
@@ -373,16 +409,31 @@ export function PortfolioPage({ unitPrices }: PortfolioPageProps) {
 
       {wallet && tour.step === 0 ? (
         <WalkthroughPopup
+          anchorRef={workflowRef}
+          title="End of the flow"
+          body={withPersonalizedLead(
+            profile,
+            "portfolio",
+            "Deposit adds GBP. Trade turns GBP into crypto (or back). Portfolio is where you review what you own, valued in USD."
+          )}
+          onClose={tour.finish}
+          onNext={tour.next}
+          showNext
+          stepLabel="1 / 4"
+        />
+      ) : null}
+      {wallet && tour.step === 1 ? (
+        <WalkthroughPopup
           anchorRef={totalRef}
           title="Total in dollars"
           body="Pretend portfolio only. This number is the sum of every coin row below (amount × price). Matches Dashboard."
           onClose={tour.finish}
           onNext={tour.next}
           showNext
-          stepLabel="1 / 3"
+          stepLabel="2 / 4"
         />
       ) : null}
-      {wallet && tour.step === 1 ? (
+      {wallet && tour.step === 2 ? (
         <WalkthroughPopup
           anchorRef={actionsRef}
           title="Send / Receive"
@@ -390,10 +441,10 @@ export function PortfolioPage({ unitPrices }: PortfolioPageProps) {
           onClose={tour.finish}
           onNext={tour.next}
           showNext
-          stepLabel="2 / 3"
+          stepLabel="3 / 4"
         />
       ) : null}
-      {wallet && tour.step === 2 ? (
+      {wallet && tour.step === 3 ? (
         <WalkthroughPopup
           anchorRef={holdingsRef}
           title="Each row"
@@ -402,7 +453,7 @@ export function PortfolioPage({ unitPrices }: PortfolioPageProps) {
           onNext={tour.finish}
           showNext
           nextLabel="Done"
-          stepLabel="3 / 3"
+          stepLabel="4 / 4"
         />
       ) : null}
     </div>

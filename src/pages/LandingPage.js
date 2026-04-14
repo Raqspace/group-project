@@ -1,39 +1,30 @@
+import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 import { useLivePrices } from "../hooks/useLivePrices";
-
-type SymbolRow = { sym: "BTC" | "ETH" | "USDT"; label: string };
-
-const TICKER_ROWS: SymbolRow[] = [
-  { sym: "BTC", label: "BTC" },
-  { sym: "ETH", label: "ETH" },
-  { sym: "USDT", label: "USDT" },
+const TICKER_ROWS = [
+    { sym: "BTC", label: "BTC" },
+    { sym: "ETH", label: "ETH" },
+    { sym: "USDT", label: "USDT" },
 ];
-
-function fmtUsd(n: number) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: n >= 100 ? 0 : 2,
-  }).format(n);
+function fmtUsd(n) {
+    return new Intl.NumberFormat("en-US", {
+        style: "currency",
+        currency: "USD",
+        maximumFractionDigits: n >= 100 ? 0 : 2,
+    }).format(n);
 }
-
-function fmtPct(n: number) {
-  const sign = n > 0 ? "+" : n < 0 ? "" : "";
-  return `${sign}${n.toFixed(1)}`;
+function fmtPct(n) {
+    const sign = n > 0 ? "+" : n < 0 ? "" : "";
+    return `${sign}${n.toFixed(1)}`;
 }
-
 export function LandingPage() {
-  const { prices, changes24h, error } = useLivePrices();
-
-  const tickerItems = TICKER_ROWS.map((r) => ({
-    sym: r.label,
-    price: fmtUsd(prices[r.sym]),
-    ch: fmtPct(changes24h[r.sym]),
-    up: changes24h[r.sym] >= 0,
-  }));
-
-  return (
-    <div className="landing-root">
-      <style>{`
+    const { prices, changes24h, error } = useLivePrices();
+    const tickerItems = TICKER_ROWS.map((r) => ({
+        sym: r.label,
+        price: fmtUsd(prices[r.sym]),
+        ch: fmtPct(changes24h[r.sym]),
+        up: changes24h[r.sym] >= 0,
+    }));
+    return (_jsxs("div", { className: "landing-root", children: [_jsx("style", { children: `
         .landing-root {
           --landing-bg: #efefec;
           --landing-card: #f6f6f3;
@@ -292,88 +283,5 @@ export function LandingPage() {
           border: 1px solid var(--landing-accent-border);
           font-size: 1.1rem;
         }
-      `}</style>
-
-      <div className="landing-grid">
-        <div className="landing-hero">
-          <div>
-            <div className="landing-badge">
-              <span className="landing-badge-dot" aria-hidden />
-              CryptoWallet
-            </div>
-            <h1 className="landing-h1">Learn cryptocurrency wallet workflows in a simulated environment.</h1>
-            <p className="landing-lead">
-              CryptoWallet is an instructional simulator, not a live trading venue. After you sign up, your display name appears in the
-              sidebar and short contextual tips open on each main screen (replay anytime with Page tips). Explore balances, simulated
-              transfers, and price ideas without committing capital — or open the demo for a walkthrough workspace without registering.
-            </p>
-            <div className="landing-actions">
-              <a className="landing-btn landing-btn-primary" href="#/signup?goal=explore">
-                Create account
-              </a>
-              <a className="landing-btn landing-btn-secondary" href="#/login">
-                Log in
-              </a>
-              <a className="landing-btn landing-btn-ghost" href="#/demo">
-                Demo / Demonstrator
-              </a>
-            </div>
-          </div>
-
-          <div className="landing-panel">
-            <div className="landing-panel-header">
-              <div>
-                <div className="landing-panel-title">Sample portfolio</div>
-                <p className="landing-panel-hint">Illustrative totals for training purposes</p>
-                <div className="landing-balance">
-                  $128,420
-                  <span>+3.1%</span>
-                </div>
-              </div>
-            </div>
-            <div className="landing-chart" aria-hidden>
-              {[35, 52, 48, 61, 55, 72, 68, 80, 76, 88, 84, 92].map((h, i) => (
-                <div key={i} className="landing-chart-bar" style={{ height: `${h}%` }} />
-              ))}
-            </div>
-            <div className="landing-ticker-wrap">
-              <p className="landing-ticker-caption">
-                Market reference prices in USD, updated on the same cadence as the application, approximately every 30 seconds.
-              </p>
-              {error ? <p className="landing-ticker-error">{error}</p> : null}
-              <div className="landing-ticker" aria-label="Live crypto prices">
-                <div className="landing-ticker-track">
-                  {[...tickerItems, ...tickerItems].map((row, i) => (
-                    <div key={i} className="landing-ticker-item">
-                      <strong>{row.sym}</strong>
-                      {row.price}
-                      <span className={row.up ? "up" : "down"}> {row.ch}%</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="landing-features">
-          <div className="landing-feature">
-            <div className="landing-icon">◈</div>
-            <h3>Word explanations</h3>
-            <p>Plain language on what labels, balances, and actions mean so you are not guessing as you move through the simulator.</p>
-          </div>
-          <div className="landing-feature">
-            <div className="landing-icon">◇</div>
-            <h3>Walkthroughs</h3>
-            <p>Step by step paths that show where things live and in what order you would typically use them in a real wallet.</p>
-          </div>
-          <div className="landing-feature">
-            <div className="landing-icon">◎</div>
-            <h3>Practice flows</h3>
-            <p>Try simulated buy and sell, and send funds to contacts, with no real capital required.</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+      ` }), _jsxs("div", { className: "landing-grid", children: [_jsxs("div", { className: "landing-hero", children: [_jsxs("div", { children: [_jsxs("div", { className: "landing-badge", children: [_jsx("span", { className: "landing-badge-dot", "aria-hidden": true }), "CryptoWallet"] }), _jsx("h1", { className: "landing-h1", children: "Learn cryptocurrency wallet workflows in a simulated environment." }), _jsx("p", { className: "landing-lead", children: "CryptoWallet is an instructional simulator, not a live trading venue. Review balances, complete simulated transfer exercises, explore trade concepts, and configure price notifications without committing capital. Sign in to continue with your account, or visit the demo page to access a demonstrator workspace without registration." }), _jsxs("div", { className: "landing-actions", children: [_jsx("a", { className: "landing-btn landing-btn-primary", href: "#/signup", children: "Create account" }), _jsx("a", { className: "landing-btn landing-btn-secondary", href: "#/login", children: "Log in" }), _jsx("a", { className: "landing-btn landing-btn-ghost", href: "#/demo", children: "Demo / Demonstrator" })] })] }), _jsxs("div", { className: "landing-panel", children: [_jsx("div", { className: "landing-panel-header", children: _jsxs("div", { children: [_jsx("div", { className: "landing-panel-title", children: "Sample portfolio" }), _jsx("p", { className: "landing-panel-hint", children: "Illustrative totals for training purposes" }), _jsxs("div", { className: "landing-balance", children: ["$128,420", _jsx("span", { children: "+3.1%" })] })] }) }), _jsx("div", { className: "landing-chart", "aria-hidden": true, children: [35, 52, 48, 61, 55, 72, 68, 80, 76, 88, 84, 92].map((h, i) => (_jsx("div", { className: "landing-chart-bar", style: { height: `${h}%` } }, i))) }), _jsxs("div", { className: "landing-ticker-wrap", children: [_jsx("p", { className: "landing-ticker-caption", children: "Market reference prices in USD, updated on the same cadence as the application, approximately every 30 seconds." }), error ? _jsx("p", { className: "landing-ticker-error", children: error }) : null, _jsx("div", { className: "landing-ticker", "aria-label": "Live crypto prices", children: _jsx("div", { className: "landing-ticker-track", children: [...tickerItems, ...tickerItems].map((row, i) => (_jsxs("div", { className: "landing-ticker-item", children: [_jsx("strong", { children: row.sym }), row.price, _jsxs("span", { className: row.up ? "up" : "down", children: [" ", row.ch, "%"] })] }, i))) }) })] })] })] }), _jsxs("div", { className: "landing-features", children: [_jsxs("div", { className: "landing-feature", children: [_jsx("div", { className: "landing-icon", children: "\u25C8" }), _jsx("h3", { children: "Word explanations" }), _jsx("p", { children: "Plain language on what labels, balances, and actions mean so you are not guessing as you move through the simulator." })] }), _jsxs("div", { className: "landing-feature", children: [_jsx("div", { className: "landing-icon", children: "\u25C7" }), _jsx("h3", { children: "Walkthroughs" }), _jsx("p", { children: "Step by step paths that show where things live and in what order you would typically use them in a real wallet." })] }), _jsxs("div", { className: "landing-feature", children: [_jsx("div", { className: "landing-icon", children: "\u25CE" }), _jsx("h3", { children: "Practice flows" }), _jsx("p", { children: "Try simulated buy and sell, and send funds to contacts, with no real capital required." })] })] })] })] }));
 }

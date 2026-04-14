@@ -1,3 +1,1 @@
-export function SetupPage() {
-  return null;
-}
+"use strict";

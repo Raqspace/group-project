@@ -1,3 +1,7 @@
+/**
+ * Small anchored callout used for contextual tips (not a full-screen wizard).
+ * Position is derived from `anchorRef` so guidance stays tied to real UI as the user explores the app.
+ */
 import { useLayoutEffect, useRef, useState } from "react";
 import "./walkthrough.css";
 

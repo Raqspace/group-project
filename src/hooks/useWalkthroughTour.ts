@@ -1,7 +1,13 @@
 import { useCallback, useState } from "react";
 
 /**
- * On-demand tours only. No localStorage: users reopen tips anytime via Page tips in the header.
+ * Lightweight per-page step machine for `WalkthroughPopup`.
+ *
+ * - `step === null`: no overlay. User is in the product.
+ * - `step >= 0`: show that step. Advancing is local to the page (no global router).
+ *
+ * Started by: (1) `useAutoStartPageTour` on first visit to that screen in the session, (2) header “Page tips”.
+ * No remote config — keeps latency at zero.
  */
 export function useWalkthroughTour() {
   const [step, setStep] = useState<number | null>(null);

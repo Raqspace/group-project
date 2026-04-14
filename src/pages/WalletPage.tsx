@@ -24,6 +24,7 @@ export function WalletPage() {
   const [wallet, setWallet] = useState<WalletRow | null>(null);
   const [holdings, setHoldings] = useState<HoldingRow[]>([]);
   const [revealPhrase, setRevealPhrase] = useState<string | null>(null);
+  const [walletLoadDone, setWalletLoadDone] = useState(false);
 
   const introRef = useRef<HTMLDivElement>(null);
   const createBtnRef = useRef<HTMLButtonElement>(null);
@@ -49,6 +50,22 @@ export function WalletPage() {
     loadWallet();
   }, []);
 
+  /**
+   * Wallet tips branch on whether a row exists — wait for `loadWallet` before the session auto-tour
+   * so we don’t flash the “create wallet” tour for users who already have one.
+   */
+  useEffect(() => {
+    if (!walletLoadDone) return;
+    try {
+      const k = "cw_session_tour_wallet";
+      if (sessionStorage.getItem(k)) return;
+      sessionStorage.setItem(k, "1");
+    } catch {
+      /* noop */
+    }
+    startWalletTour();
+  }, [walletLoadDone, startWalletTour]);
+
   useEffect(() => {
     if (wallet) tourCreate.finish();
     else tourSaved.finish();
@@ -64,26 +81,30 @@ export function WalletPage() {
   };
 
   const loadWallet = async () => {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) return;
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
 
-    const { data: walletData } = await supabase
-      .from("Wallet")
-      .select("*")
-      .eq("user_id", user.id)
-      .single();
+      const { data: walletData } = await supabase
+        .from("Wallet")
+        .select("*")
+        .eq("user_id", user.id)
+        .single();
 
-    if (walletData) {
-      setWallet(walletData as WalletRow);
-      const { data: rows } = await supabase
-        .from("holdings")
-        .select("id, symbol, amount")
-        .eq("wallet_id", (walletData as WalletRow).id);
-      if (rows) setHoldings(rows as HoldingRow[]);
-    } else {
-      setHoldings([]);
+      if (walletData) {
+        setWallet(walletData as WalletRow);
+        const { data: rows } = await supabase
+          .from("holdings")
+          .select("id, symbol, amount")
+          .eq("wallet_id", (walletData as WalletRow).id);
+        if (rows) setHoldings(rows as HoldingRow[]);
+      } else {
+        setHoldings([]);
+      }
+    } finally {
+      setWalletLoadDone(true);
     }
   };
 
