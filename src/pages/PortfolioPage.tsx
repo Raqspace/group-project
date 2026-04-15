@@ -10,10 +10,20 @@ import type { UnitPricesUsd } from "../utils/unitPrices";
 import { portfolioTotalUsd } from "../utils/unitPrices";
 
 const formatUsd = (value: number) =>
-  new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
+  new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
 
 function unitPx(symbol: string, u: UnitPricesUsd): number {
-  const m: Record<string, number> = { BTC: u.BTC, ETH: u.ETH, XRP: u.XRP, USDT: u.USDT };
+  const m: Record<string, number> = {
+    BTC: u.BTC,
+    ETH: u.ETH,
+    XRP: u.XRP,
+    USDT: u.USDT,
+  };
   return m[symbol] ?? 0;
 }
 
@@ -37,6 +47,9 @@ export function PortfolioPage({ unitPrices }: PortfolioPageProps) {
   const [recipientAddress, setRecipientAddress] = useState("");
   const [sendAmount, setSendAmount] = useState("");
   const [sendSymbol, setSendSymbol] = useState("ETH");
+  const [contactLabel, setContactLabel] = useState("");
+  const [saveAsContact, setSaveAsContact] = useState(true);
+
   const [sendError, setSendError] = useState("");
   const [sendSuccess, setSendSuccess] = useState("");
   const [sendLoading, setSendLoading] = useState(false);
@@ -67,19 +80,23 @@ export function PortfolioPage({ unitPrices }: PortfolioPageProps) {
     const {
       data: { user },
     } = await supabase.auth.getUser();
+
     if (!user) return;
 
-    const { data: walletData } = await supabase.from("Wallet").select("*").eq("user_id", user.id).single();
+    const { data: walletData } = await supabase
+      .from("Wallet")
+      .select("*")
+      .eq("user_id", user.id)
+      .single();
 
     if (walletData) {
       setWallet(walletData);
-      loadHoldings(walletData.id);
+      await loadHoldings(walletData.id);
     }
   };
 
   const loadHoldings = async (walletId: string) => {
     const { data } = await supabase.from("holdings").select("*").eq("wallet_id", walletId);
-
     if (data) setHoldings(data);
   };
 
@@ -89,8 +106,59 @@ export function PortfolioPage({ unitPrices }: PortfolioPageProps) {
     setSendSuccess("");
     setRecipientAddress("");
     setSendAmount("");
+    setContactLabel("");
+    setSaveAsContact(true);
     setShowModal(true);
   };
+
+  const saveContactLink = async (ownerUserId: string, recipientWallet: any) => {
+    if (!saveAsContact || !recipientWallet) return;
+
+    const cleanLabel = contactLabel.trim();
+
+    const { data: existing, error: existingError } = await supabase
+      .from("contacts")
+      .select("id, label")
+      .eq("owner_user_id", ownerUserId)
+      .eq("contact_wallet_id", recipientWallet.id)
+      .maybeSingle();
+
+    if (existingError) {
+      console.error("contacts select failed:", existingError);
+      throw new Error(existingError.message);
+    }
+
+    if (existing) {
+      if (cleanLabel && cleanLabel !== existing.label) {
+        const { error: updateError } = await supabase
+          .from("contacts")
+          .update({
+            label: cleanLabel,
+            username: recipientWallet.username || "unknown",
+          })
+          .eq("id", existing.id);
+
+        if (updateError) {
+          console.error("contacts update failed:", updateError);
+          throw new Error(updateError.message);
+        }
+      }
+      return;
+    }
+
+      const { error: insertError } = await supabase.from("contacts").insert({
+        owner_user_id: ownerUserId,
+        contact_wallet_id: recipientWallet.id,
+        contact_user_id: recipientWallet.user_id ?? null,
+        contact_address: recipientWallet.public_address,
+        label: cleanLabel || null,
+        username: recipientWallet.username || "unknown",
+      });
+
+      if (insertError) {
+        console.error("contacts insert failed:", insertError);
+        throw new Error(insertError.message);
+      }};
 
   const handleSend = async () => {
     setSendError("");
@@ -98,7 +166,11 @@ export function PortfolioPage({ unitPrices }: PortfolioPageProps) {
 
     const amount = parseFloat(sendAmount);
 
-    if (!recipientAddress) {
+    if (!wallet) {
+      setSendError("Wallet not loaded");
+      return;
+    }
+    if (!recipientAddress.trim()) {
       setSendError("Please enter a recipient address");
       return;
     }
@@ -112,50 +184,110 @@ export function PortfolioPage({ unitPrices }: PortfolioPageProps) {
       setSendError("Insufficient balance");
       return;
     }
-    if (recipientAddress === wallet.public_address) {
+    if (recipientAddress.trim() === wallet.public_address) {
       setSendError("Cannot send to your own address");
       return;
     }
 
     setSendLoading(true);
 
-    const { error: deductError } = await supabase
-      .from("holdings")
-      .update({ amount: holding.amount - amount })
-      .eq("id", holding.id);
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
-    if (deductError) {
-      setSendError("Transaction failed");
-      setSendLoading(false);
-      return;
-    }
+      if (!user) {
+        setSendError("User not found");
+        setSendLoading(false);
+        return;
+      }
 
-    const { data: recipientWallet } = await supabase
-      .from("Wallet")
-      .select("id")
-      .eq("public_address", recipientAddress)
-      .single();
+      const cleanRecipientAddress = recipientAddress.trim();
 
-    if (recipientWallet) {
+      const { data: recipientWallet } = await supabase
+        .from("Wallet")
+        .select("*")
+        .eq("public_address", cleanRecipientAddress)
+        .maybeSingle();
+
+      if (!recipientWallet) {
+        setSendError("Recipient wallet not found");
+        setSendLoading(false);
+        return;
+      }
+
+      const { error: deductError } = await supabase
+        .from("holdings")
+        .update({ amount: holding.amount - amount })
+        .eq("id", holding.id);
+
+      if (deductError) {
+        setSendError("Transaction failed");
+        setSendLoading(false);
+        return;
+      }
+
       const { data: recipientHolding } = await supabase
         .from("holdings")
         .select("*")
         .eq("wallet_id", recipientWallet.id)
         .eq("symbol", sendSymbol)
-        .single();
+        .maybeSingle();
 
       if (recipientHolding) {
-        await supabase
+        const { error: addError } = await supabase
           .from("holdings")
           .update({ amount: recipientHolding.amount + amount })
           .eq("id", recipientHolding.id);
-      }
-    }
 
-    setSendSuccess(`Successfully sent ${amount} ${sendSymbol}`);
-    setRecipientAddress("");
-    setSendAmount("");
-    loadWallet();
+        if (addError) {
+          setSendError("Transaction failed");
+          setSendLoading(false);
+          return;
+        }
+      } else {
+        const { error: insertHoldingError } = await supabase.from("holdings").insert({
+          wallet_id: recipientWallet.id,
+          symbol: sendSymbol,
+          amount,
+        });
+
+        if (insertHoldingError) {
+          setSendError("Transaction failed");
+          setSendLoading(false);
+          return;
+        }
+      }
+
+      const { error: transactionError } = await supabase.from("transactions").insert({
+        sender_wallet_id: wallet.id,
+        recipient_wallet_id: recipientWallet.id,
+        sender_user_id: user.id,
+        recipient_user_id: recipientWallet.user_id ?? null,
+        symbol: sendSymbol,
+        amount,
+      });
+
+      if (transactionError) {
+        console.error("transactions insert failed:", transactionError);
+        setSendError(transactionError.message || "Transaction record failed");
+        setSendLoading(false);
+        return;
+      }
+
+      await saveContactLink(user.id, recipientWallet);
+
+      setSendSuccess(`Successfully sent ${amount} ${sendSymbol}`);
+      setRecipientAddress("");
+      setSendAmount("");
+      setContactLabel("");
+      setSaveAsContact(true);
+      await loadWallet();
+      } catch (error: any) {
+        console.error("handleSend failed:", error);
+        setSendError(error?.message || "Transaction failed");
+      }
+
     setSendLoading(false);
   };
 
@@ -166,7 +298,15 @@ export function PortfolioPage({ unitPrices }: PortfolioPageProps) {
   return (
     <div style={{ maxWidth: 700, margin: "0 auto", padding: "0 0 24px", position: "relative" }}>
       <div ref={workflowRef} className="card" style={{ marginBottom: "0.9rem" }}>
-        <p style={{ margin: 0, fontSize: "0.72rem", color: "#666764", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+        <p
+          style={{
+            margin: 0,
+            fontSize: "0.72rem",
+            color: "#666764",
+            textTransform: "uppercase",
+            letterSpacing: "0.06em",
+          }}
+        >
           Your place in the flow
         </p>
         <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", alignItems: "center", marginTop: "0.65rem" }}>
@@ -202,8 +342,9 @@ export function PortfolioPage({ unitPrices }: PortfolioPageProps) {
         <p style={{ margin: 0, opacity: 0.7 }}>Total portfolio value (USD)</p>
         <h2 style={{ margin: "8px 0 0" }}>{formatUsd(totalUsd)}</h2>
         <p style={{ margin: "10px 0 0", fontSize: "13px", opacity: 0.85, lineHeight: 1.45 }}>
-          This is the sum of every row below: <strong>amount × today’s USD price</strong> for each coin. Dashboard uses the same prices,
-          so this number should match the <strong>Portfolio total</strong> and the <strong>Holdings total</strong> there.
+          This is the sum of every row below: <strong>amount × today’s USD price</strong> for each coin. Dashboard uses
+          the same prices, so this number should match the <strong>Portfolio total</strong> and the{" "}
+          <strong>Holdings total</strong> there.
         </p>
         <p style={{ margin: "8px 0 0", fontSize: "13px", opacity: 0.6 }}>
           Practice wallet: {wallet?.public_address?.slice(0, 18)}…
@@ -245,9 +386,10 @@ export function PortfolioPage({ unitPrices }: PortfolioPageProps) {
 
       <h3 ref={holdingsRef}>My holdings</h3>
       <p style={{ margin: "0 0 14px", fontSize: "0.88rem", color: "#555" }}>
-        <strong>Units</strong> = how many coins the simulator stored for you. <strong>USD value</strong> = units × the price shown. Prices
-        refresh with the rest of the app (BTC, ETH, USDT from the main feed, XRP from the same snapshot).
+        <strong>Units</strong> = how many coins the simulator stored for you. <strong>USD value</strong> = units × the
+        price shown. Prices refresh with the rest of the app.
       </p>
+
       <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
         {holdings.map((h) => {
           const up = unitPx(h.symbol, unitPrices);
@@ -266,9 +408,7 @@ export function PortfolioPage({ unitPrices }: PortfolioPageProps) {
             >
               <div>
                 <strong style={{ fontSize: "18px" }}>{h.symbol}</strong>
-                <p style={{ margin: "4px 0 0", color: "#666", fontSize: "14px" }}>
-                  {h.amount} units
-                </p>
+                <p style={{ margin: "4px 0 0", color: "#666", fontSize: "14px" }}>{h.amount} units</p>
               </div>
               <div style={{ textAlign: "right" }}>
                 <strong>{formatUsd(lineUsd)}</strong>
@@ -314,7 +454,15 @@ export function PortfolioPage({ unitPrices }: PortfolioPageProps) {
             zIndex: 1000,
           }}
         >
-          <div style={{ background: "white", padding: "30px", borderRadius: "12px", width: "400px", position: "relative" }}>
+          <div
+            style={{
+              background: "white",
+              padding: "30px",
+              borderRadius: "12px",
+              width: "420px",
+              position: "relative",
+            }}
+          >
             <button
               type="button"
               onClick={() => setShowModal(false)}
@@ -334,6 +482,7 @@ export function PortfolioPage({ unitPrices }: PortfolioPageProps) {
             {modalType === "send" ? (
               <>
                 <h3>Send Crypto</h3>
+
                 {sendError && <p style={{ color: "red" }}>{sendError}</p>}
                 {sendSuccess && <p style={{ color: "green" }}>{sendSuccess}</p>}
 
@@ -345,22 +494,50 @@ export function PortfolioPage({ unitPrices }: PortfolioPageProps) {
                   <option value="BTC">BTC</option>
                   <option value="ETH">ETH</option>
                   <option value="XRP">XRP</option>
+                  <option value="USDT">USDT</option>
                 </select>
 
                 <input
                   type="text"
-                  placeholder="Recipient address (0x...)"
+                  placeholder="Recipient address"
                   value={recipientAddress}
                   onChange={(e) => setRecipientAddress(e.target.value)}
                   style={{ display: "block", width: "100%", padding: "8px", marginBottom: "10px" }}
                 />
+
                 <input
                   type="number"
                   placeholder="Amount"
                   value={sendAmount}
                   onChange={(e) => setSendAmount(e.target.value)}
-                  style={{ display: "block", width: "100%", padding: "8px", marginBottom: "16px" }}
+                  style={{ display: "block", width: "100%", padding: "8px", marginBottom: "10px" }}
                 />
+
+                <input
+                  type="text"
+                  placeholder="Optional label (e.g. Alice / Rent / Team)"
+                  value={contactLabel}
+                  onChange={(e) => setContactLabel(e.target.value)}
+                  style={{ display: "block", width: "100%", padding: "8px", marginBottom: "10px" }}
+                />
+
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    fontSize: "14px",
+                    marginBottom: "16px",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={saveAsContact}
+                    onChange={(e) => setSaveAsContact(e.target.checked)}
+                  />
+                  Save this recipient to Contacts
+                </label>
+
                 <button
                   type="button"
                   onClick={handleSend}
@@ -382,7 +559,15 @@ export function PortfolioPage({ unitPrices }: PortfolioPageProps) {
               <>
                 <h3>Receive Crypto</h3>
                 <p>Share your wallet address to receive crypto:</p>
-                <div style={{ background: "#eee", padding: "12px", borderRadius: "6px", wordBreak: "break-all", fontSize: "13px" }}>
+                <div
+                  style={{
+                    background: "#eee",
+                    padding: "12px",
+                    borderRadius: "6px",
+                    wordBreak: "break-all",
+                    fontSize: "13px",
+                  }}
+                >
                   {wallet?.public_address}
                 </div>
                 <button
@@ -422,6 +607,7 @@ export function PortfolioPage({ unitPrices }: PortfolioPageProps) {
           stepLabel="1 / 4"
         />
       ) : null}
+
       {wallet && tour.step === 1 ? (
         <WalkthroughPopup
           anchorRef={totalRef}
@@ -433,17 +619,19 @@ export function PortfolioPage({ unitPrices }: PortfolioPageProps) {
           stepLabel="2 / 4"
         />
       ) : null}
+
       {wallet && tour.step === 2 ? (
         <WalkthroughPopup
           anchorRef={actionsRef}
           title="Send / Receive"
-          body="Send moves one asset to another user’s address in this app. Receive shows your address to copy. Simulator only, not a real chain."
+          body="Send moves one asset to another user’s address in this app. Now you can also save that recipient into Contacts."
           onClose={tour.finish}
           onNext={tour.next}
           showNext
           stepLabel="3 / 4"
         />
       ) : null}
+
       {wallet && tour.step === 3 ? (
         <WalkthroughPopup
           anchorRef={holdingsRef}

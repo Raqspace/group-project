@@ -12,6 +12,7 @@ type WalletRow = {
   user_id: string;
   public_address: string;
   balance: number;
+  username?: string | null;
   recovery_phrase?: string | null;
 };
 
@@ -136,10 +137,16 @@ export function WalletPage() {
     }
 
     const phrase = generateSimRecoveryPhrase();
+    const username =
+      user.user_metadata?.display_name ||
+      user.email?.split("@")[0] ||
+      "unknown";
+
     const baseRow = {
       user_id: user.id,
       public_address: generateWalletAddress(),
       balance: 0,
+      username,
     };
 
     let { error: walletError } = await supabase
