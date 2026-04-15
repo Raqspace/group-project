@@ -18,6 +18,11 @@ async function applyFiresIfNeeded(list: PriceAlert[], prices: LivePricesUsd, use
   const now = new Date().toISOString();
   for (const a of toFire) {
     await updatePriceAlert(a.id, { triggeredAt: now, isActive: false });
+    await supabase.from("notifications").insert({
+      user_id: userId,
+      type: "alert",
+      message: `Price alert fired: ${a.symbol} is ${a.direction === "above" ? "above" : "below"} $${a.targetPrice.toLocaleString()}`
+    })
   }
   return listPriceAlertsForUser(userId);
 }
@@ -29,9 +34,7 @@ export function usePriceAlerts(prices: LivePricesUsd | null) {
   const [backend, setBackend] = useState<"supabase" | "local">(() => getPriceAlertsBackend());
 
   const loadAndEvaluate = useCallback(async () => {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       setAlerts([]);
       setLoading(false);
@@ -63,9 +66,7 @@ export function usePriceAlerts(prices: LivePricesUsd | null) {
 
   const addAlert = useCallback(
     async (input: { symbol: PriceAlert["symbol"]; direction: PriceAlert["direction"]; targetPrice: number }) => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not signed in");
       await createPriceAlert({
         userId: user.id,

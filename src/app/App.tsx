@@ -9,15 +9,17 @@ import { DepositPage } from "../pages/DepositPage";
 import { LandingPage } from "../pages/LandingPage";
 import { LoginPage } from "../pages/LoginPage";
 import { NotFoundPage } from "../pages/NotFoundPage";
+import { NotificationPage } from "../pages/NotificationPage";
 import { PortfolioPage } from "../pages/PortfolioPage";
 import { SettingsPage } from "../pages/SettingsPage";
 import { SignUpPage } from "../pages/SignUpPage";
 import { TradePage } from "../pages/TradePage";
 import { TransactionsPage } from "../pages/TransactionsPage";
 import { WalletPage } from "../pages/WalletPage";
+import { NotificationCenter } from "../components/notifications/NotificationCenter";
 import { TutorialProfileProvider } from "../context/TutorialProfileContext";
 import { supabase } from "../services/supabaseClient";
-import { clearSessionTourFlags, clearTutorialSessionProfileCache, pickDisplayName } from "../utils/tutorialProfile";
+import { clearTutorialSessionProfileCache, pickDisplayName } from "../utils/tutorialProfile";
 import { requestTour, type TourPage } from "../utils/tourBus";
 
 const NAV = [
@@ -32,9 +34,6 @@ const NAV = [
   { key: "settings", label: "Settings" },
 ] as const;
 
-/**
- * Hash route path only (lowercase), without query string — so `#/signup?goal=trade` still maps to `signup`.
- */
 function getRouteFromHash() {
   const raw = window.location.hash.replace(/^#\/?/, "").trim().toLowerCase();
   const path = raw.split("?")[0]?.trim() ?? "";
@@ -43,19 +42,11 @@ function getRouteFromHash() {
 
 type MainAppProps = { route: string };
 
-/** Map URL segment to tour id (`history` → same tips as transactions). */
 function routeToTourPage(route: string): TourPage | null {
   if (route === "history") return "transactions";
   const tipped: TourPage[] = [
-    "dashboard",
-    "portfolio",
-    "wallet",
-    "deposit",
-    "trade",
-    "transactions",
-    "contacts",
-    "alerts",
-    "settings",
+    "dashboard", "portfolio", "wallet", "deposit",
+    "trade", "transactions", "contacts", "alerts", "settings",
   ];
   return tipped.includes(route as TourPage) ? (route as TourPage) : null;
 }
@@ -65,27 +56,18 @@ function MainApp({ route }: MainAppProps) {
   const [xrpUsd, setXrpUsd] = useState(0);
   const [user, setUser] = useState<any>(null);
   const [authChecked, setAuthChecked] = useState(false);
+
   useEffect(() => {
     let cancelled = false;
     fetch("https://api.coingecko.com/api/v3/simple/price?ids=ripple&vs_currencies=usd")
       .then((r) => r.json())
       .then((j) => {
-        if (!cancelled && typeof j?.ripple?.usd === "number") {
-          setXrpUsd(j.ripple.usd);
-        }
+        if (!cancelled && typeof j?.ripple?.usd === "number") setXrpUsd(j.ripple.usd);
       })
-      .catch(() => {
-        if (!cancelled) setXrpUsd(0.5);
-      });
-    return () => {
-      cancelled = true;
-    };
+      .catch(() => { if (!cancelled) setXrpUsd(0.5); });
+    return () => { cancelled = true; };
   }, []);
 
-  /**
-   * Session bootstrap + live updates. `getSession` resolves the initial cookie/local session without a flash
-   * of “logged out”; `onAuthStateChange` keeps `user` in sync (refresh, sign-out elsewhere).
-   */
   useEffect(() => {
     let cancelled = false;
 
@@ -96,29 +78,20 @@ function MainApp({ route }: MainAppProps) {
     };
 
     void (async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+      const { data: { session } } = await supabase.auth.getSession();
       if (cancelled) return;
       await applySession(session?.user ?? null);
     })();
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       void applySession(session?.user ?? null);
     });
 
-    return () => {
-      cancelled = true;
-      subscription.unsubscribe();
-    };
+    return () => { cancelled = true; subscription.unsubscribe(); };
   }, []);
 
   useEffect(() => {
-    if (authChecked && !user) {
-      window.location.hash = "#/home";
-    }
+    if (authChecked && !user) window.location.hash = "#/home";
   }, [authChecked, user]);
 
   const handleLogout = async () => {
@@ -131,39 +104,22 @@ function MainApp({ route }: MainAppProps) {
 
   const renderPage = () => {
     switch (route) {
-      case "dashboard":
-        return (
-          <DashboardPage
-            prices={prices}
-            unitPrices={unitPrices}
-            lastUpdated={lastUpdated}
-            priceError={error}
-          />
-        );
-      case "wallet":
-        return <WalletPage />;
-      case "portfolio":
-        return <PortfolioPage unitPrices={unitPrices} />;
-      case "deposit":
-        return <DepositPage />;
-      case "trade":
-        return <TradePage />;
+      case "dashboard":     return <DashboardPage prices={prices} unitPrices={unitPrices} lastUpdated={lastUpdated} priceError={error} />;
+      case "wallet":        return <WalletPage />;
+      case "portfolio":     return <PortfolioPage unitPrices={unitPrices} />;
+      case "deposit":       return <DepositPage />;
+      case "trade":         return <TradePage />;
       case "transactions":
-      case "history":
-        return <TransactionsPage />;
-      case "contacts":
-        return <ContactsPage />;
-      case "alerts":
-        return <AlertsPage />;
-      case "settings":
-        return <SettingsPage />;
-      default:
-        return <NotFoundPage />;
+      case "history":       return <TransactionsPage />;
+      case "contacts":      return <ContactsPage />;
+      case "alerts":        return <AlertsPage />;
+      case "notifications": return <NotificationPage />;
+      case "settings":      return <SettingsPage />;
+      default:              return <NotFoundPage />;
     }
   };
 
   const pageTitle = NAV.find((item) => item.key === route)?.label ?? "Not Found";
-
   const activeTourPage = routeToTourPage(route);
   const showPageTips = Boolean(user && activeTourPage);
 
@@ -172,14 +128,10 @@ function MainApp({ route }: MainAppProps) {
       <main className="app-shell" aria-busy="true">
         <aside className="sidebar card" style={{ opacity: 0.72 }}>
           <h1 className="brand">Crypto Wallet</h1>
-          <p className="live-note" style={{ marginTop: "1rem" }}>
-            Loading your session…
-          </p>
+          <p className="live-note" style={{ marginTop: "1rem" }}>Loading your session…</p>
         </aside>
         <section className="content">
-          <p className="live-note" style={{ padding: "1.5rem" }}>
-            One moment — preparing your workspace.
-          </p>
+          <p className="live-note" style={{ padding: "1.5rem" }}>One moment — preparing your workspace.</p>
         </section>
       </main>
     );
@@ -189,7 +141,9 @@ function MainApp({ route }: MainAppProps) {
     <main className="app-shell">
       <aside className="sidebar card">
         <div>
-          <h1 className="brand">Crypto Wallet</h1>
+          <a href="#/dashboard" style={{ textDecoration: "none", color: "inherit" }}>
+            <h1 className="brand">Crypto Wallet</h1>
+          </a>
           <nav className="side-nav">
             {user ? (
               <>
@@ -214,9 +168,7 @@ function MainApp({ route }: MainAppProps) {
           {user ? (
             <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0, textAlign: "left" }}>
               <span style={{ fontWeight: 700, fontSize: "0.95rem", lineHeight: 1.2 }}>{pickDisplayName(user)}</span>
-              <span className="live-note" style={{ margin: 0, fontSize: "0.72rem", opacity: 0.85 }}>
-                {user.email}
-              </span>
+              <span className="live-note" style={{ margin: 0, fontSize: "0.72rem", opacity: 0.85 }}>{user.email}</span>
             </div>
           ) : (
             <span>Account</span>
@@ -225,7 +177,6 @@ function MainApp({ route }: MainAppProps) {
       </aside>
 
       <section className="content">
-        {/* Tutorial personalization + contextual tips: see `tutorialProfile.ts` and `TutorialProfileContext`. */}
         <TutorialProfileProvider user={user}>
           <header className="content-header card">
             <h2>{pageTitle}</h2>
@@ -240,12 +191,8 @@ function MainApp({ route }: MainAppProps) {
                   Page tips
                 </button>
               ) : null}
-              <button type="button" className="chip">
-                Notifications
-              </button>
-              <button type="button" className="chip secondary">
-                Settings
-              </button>
+              <NotificationCenter />
+              <button type="button" className="chip secondary">Settings</button>
             </div>
           </header>
           {renderPage()}
@@ -264,21 +211,10 @@ export function App() {
     return () => window.removeEventListener("hashchange", onHashChange);
   }, [route]);
 
-  if (route === "login") {
-    return <LoginPage />;
-  }
-
-  if (route === "signup") {
-    return <SignUpPage />;
-  }
-
-  if (route === "home") {
-    return <LandingPage />;
-  }
-
-  if (route === "demo") {
-    return <DemoPage />;
-  }
+  if (route === "login")  return <LoginPage />;
+  if (route === "signup") return <SignUpPage />;
+  if (route === "home")   return <LandingPage />;
+  if (route === "demo")   return <DemoPage />;
 
   return <MainApp route={route} />;
 }

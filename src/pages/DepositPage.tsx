@@ -33,9 +33,7 @@ function DepositForm() {
   useAutoStartPageTour("deposit", startTour);
 
   const loadBalance = async () => {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     const { data: wallet } = await supabase.from("Wallet").select("balance").eq("user_id", user.id).single();
     if (wallet && typeof wallet.balance === "number") setGbpBalance(wallet.balance);
@@ -62,9 +60,7 @@ function DepositForm() {
     setLoading(true);
 
     try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+      const { data: { session } } = await supabase.auth.getSession();
 
       const res = await fetch("https://yjhpbjfuxvcpcxnpotgi.supabase.co/functions/v1/create-payment-intent", {
         method: "POST",
@@ -88,13 +84,10 @@ function DepositForm() {
       if (stripeError) throw new Error(stripeError.message);
 
       if (paymentIntent?.status === "succeeded") {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
+        const { data: { user } } = await supabase.auth.getUser();
         if (!user) throw new Error("Not logged in");
 
         const { data: wallet } = await supabase.from("Wallet").select("id, balance").eq("user_id", user.id).single();
-
         if (!wallet) throw new Error("Wallet not found");
 
         const { error: updateError } = await supabase
@@ -103,6 +96,13 @@ function DepositForm() {
           .eq("id", wallet.id);
 
         if (updateError) throw updateError;
+
+        // Notification
+        await supabase.from("notifications").insert({
+          user_id: user.id,
+          type: "deposit",
+          message: `You deposited £${Number(amount).toFixed(2)} to your wallet`
+        });
 
         setSuccess(`£${amount} added. Your GBP balance is ready for Trade.`);
         setAmount("");
@@ -123,17 +123,11 @@ function DepositForm() {
           Your place in the flow
         </p>
         <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", alignItems: "center", marginTop: "0.65rem" }}>
-          <span className="chip" style={{ cursor: "default" }}>
-            1 · Deposit GBP
-          </span>
+          <span className="chip" style={{ cursor: "default" }}>1 · Deposit GBP</span>
           <span style={{ color: "#8a8a85" }}>→</span>
-          <a href="#/trade" className="chip secondary">
-            2 · Trade
-          </a>
+          <a href="#/trade" className="chip secondary">2 · Trade</a>
           <span style={{ color: "#8a8a85" }}>→</span>
-          <a href="#/portfolio" className="chip secondary">
-            3 · Portfolio
-          </a>
+          <a href="#/portfolio" className="chip secondary">3 · Portfolio</a>
         </div>
         <p className="live-note" style={{ marginTop: "0.75rem", marginBottom: 0 }}>
           <strong>Deposit</strong> only tops up <strong>pounds (GBP)</strong> on your account. It does not buy crypto by itself. Use{" "}
@@ -153,19 +147,8 @@ function DepositForm() {
           placeholder="e.g. 100"
           value={amount}
           min={1}
-          onChange={(e) => {
-            setAmount(e.target.value);
-            setError(null);
-          }}
-          style={{
-            width: "100%",
-            padding: "10px 12px",
-            borderRadius: 10,
-            border: "1px solid #cdcdc7",
-            fontSize: "1rem",
-            boxSizing: "border-box",
-            background: "#fff",
-          }}
+          onChange={(e) => { setAmount(e.target.value); setError(null); }}
+          style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: "1px solid #cdcdc7", fontSize: "1rem", boxSizing: "border-box", background: "#fff" }}
         />
         <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
           {[50, 100, 250, 500].map((preset) => (
@@ -186,14 +169,7 @@ function DepositForm() {
         <label className="live-note" style={{ display: "block", marginBottom: 6, fontWeight: 600, color: "#454642" }}>
           Card (test mode)
         </label>
-        <div
-          style={{
-            padding: 12,
-            border: "1px solid #cdcdc7",
-            borderRadius: 12,
-            background: "#fff",
-          }}
-        >
+        <div style={{ padding: 12, border: "1px solid #cdcdc7", borderRadius: 12, background: "#fff" }}>
           <CardElement
             options={{
               hidePostalCode: true,
@@ -211,17 +187,11 @@ function DepositForm() {
           Test: 4242 4242 4242 4242 · any future date · any CVC
         </p>
 
-        {error ? (
-          <p className="live-error" style={{ marginTop: 12 }}>
-            {error}
-          </p>
-        ) : null}
+        {error ? <p className="live-error" style={{ marginTop: 12 }}>{error}</p> : null}
         {success ? (
           <p style={{ marginTop: 12, color: "#2f5247", fontWeight: 600, fontSize: "0.9rem" }}>
             {success}{" "}
-            <a href="#/trade" style={{ color: "#1f3c34" }}>
-              Open Trade →
-            </a>
+            <a href="#/trade" style={{ color: "#1f3c34" }}>Open Trade →</a>
           </p>
         ) : null}
 
@@ -231,17 +201,11 @@ function DepositForm() {
           disabled={loading || !stripe}
           className="chip"
           style={{
-            marginTop: 16,
-            width: "100%",
-            padding: "12px",
+            marginTop: 16, width: "100%", padding: "12px",
             cursor: loading || !stripe ? "not-allowed" : "pointer",
             opacity: loading || !stripe ? 0.65 : 1,
-            border: "1px solid #87a69a",
-            background: "#2f5247",
-            color: "#fff",
-            fontWeight: 600,
-            fontSize: "1rem",
-            borderRadius: 10,
+            border: "1px solid #87a69a", background: "#2f5247",
+            color: "#fff", fontWeight: 600, fontSize: "1rem", borderRadius: 10,
           }}
         >
           {loading ? "Processing…" : `Pay £${amount || "0"}`}
@@ -249,42 +213,13 @@ function DepositForm() {
       </div>
 
       {tour.step === 0 ? (
-        <WalkthroughPopup
-          anchorRef={workflowRef}
-          title="Deposit = add pounds"
-          body={withPersonalizedLead(
-            profile,
-            "deposit",
-            "This page increases your GBP balance. Trade uses that cash to buy coins. Portfolio shows coins in USD."
-          )}
-          onClose={tour.finish}
-          onNext={tour.next}
-          showNext
-          stepLabel="1 / 3"
-        />
+        <WalkthroughPopup anchorRef={workflowRef} title="Deposit = add pounds" body={withPersonalizedLead(profile, "deposit", "This page increases your GBP balance. Trade uses that cash to buy coins. Portfolio shows coins in USD.")} onClose={tour.finish} onNext={tour.next} showNext stepLabel="1 / 3" />
       ) : null}
       {tour.step === 1 ? (
-        <WalkthroughPopup
-          anchorRef={amountRef}
-          title="How much?"
-          body="Choose £ to add. Quick buttons fill the box. Minimum £1."
-          onClose={tour.finish}
-          onNext={tour.next}
-          showNext
-          stepLabel="2 / 3"
-        />
+        <WalkthroughPopup anchorRef={amountRef} title="How much?" body="Choose £ to add. Quick buttons fill the box. Minimum £1." onClose={tour.finish} onNext={tour.next} showNext stepLabel="2 / 3" />
       ) : null}
       {tour.step === 2 ? (
-        <WalkthroughPopup
-          anchorRef={payRef}
-          title="Pay & next step"
-          body="Card runs in test mode here. When it succeeds, go to Trade to buy BTC, ETH, or XRP with your new GBP."
-          onClose={tour.finish}
-          onNext={tour.finish}
-          showNext
-          nextLabel="Done"
-          stepLabel="3 / 3"
-        />
+        <WalkthroughPopup anchorRef={payRef} title="Pay & next step" body="Card runs in test mode here. When it succeeds, go to Trade to buy BTC, ETH, or XRP with your new GBP." onClose={tour.finish} onNext={tour.finish} showNext nextLabel="Done" stepLabel="3 / 3" />
       ) : null}
     </div>
   );

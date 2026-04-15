@@ -77,10 +77,7 @@ export function PortfolioPage({ unitPrices }: PortfolioPageProps) {
   };
 
   const loadWallet = async () => {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
+    const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
     const { data: walletData } = await supabase
@@ -123,42 +120,30 @@ export function PortfolioPage({ unitPrices }: PortfolioPageProps) {
       .eq("contact_wallet_id", recipientWallet.id)
       .maybeSingle();
 
-    if (existingError) {
-      console.error("contacts select failed:", existingError);
-      throw new Error(existingError.message);
-    }
+    if (existingError) throw new Error(existingError.message);
 
     if (existing) {
       if (cleanLabel && cleanLabel !== existing.label) {
         const { error: updateError } = await supabase
           .from("contacts")
-          .update({
-            label: cleanLabel,
-            username: recipientWallet.username || "unknown",
-          })
+          .update({ label: cleanLabel, username: recipientWallet.username || "unknown" })
           .eq("id", existing.id);
-
-        if (updateError) {
-          console.error("contacts update failed:", updateError);
-          throw new Error(updateError.message);
-        }
+        if (updateError) throw new Error(updateError.message);
       }
       return;
     }
 
-      const { error: insertError } = await supabase.from("contacts").insert({
-        owner_user_id: ownerUserId,
-        contact_wallet_id: recipientWallet.id,
-        contact_user_id: recipientWallet.user_id ?? null,
-        contact_address: recipientWallet.public_address,
-        label: cleanLabel || null,
-        username: recipientWallet.username || "unknown",
-      });
+    const { error: insertError } = await supabase.from("contacts").insert({
+      owner_user_id: ownerUserId,
+      contact_wallet_id: recipientWallet.id,
+      contact_user_id: recipientWallet.user_id ?? null,
+      contact_address: recipientWallet.public_address,
+      label: cleanLabel || null,
+      username: recipientWallet.username || "unknown",
+    });
 
-      if (insertError) {
-        console.error("contacts insert failed:", insertError);
-        throw new Error(insertError.message);
-      }};
+    if (insertError) throw new Error(insertError.message);
+  };
 
   const handleSend = async () => {
     setSendError("");
@@ -166,41 +151,19 @@ export function PortfolioPage({ unitPrices }: PortfolioPageProps) {
 
     const amount = parseFloat(sendAmount);
 
-    if (!wallet) {
-      setSendError("Wallet not loaded");
-      return;
-    }
-    if (!recipientAddress.trim()) {
-      setSendError("Please enter a recipient address");
-      return;
-    }
-    if (!amount || amount <= 0) {
-      setSendError("Please enter a valid amount");
-      return;
-    }
+    if (!wallet) { setSendError("Wallet not loaded"); return; }
+    if (!recipientAddress.trim()) { setSendError("Please enter a recipient address"); return; }
+    if (!amount || amount <= 0) { setSendError("Please enter a valid amount"); return; }
 
     const holding = holdings.find((h) => h.symbol === sendSymbol);
-    if (!holding || holding.amount < amount) {
-      setSendError("Insufficient balance");
-      return;
-    }
-    if (recipientAddress.trim() === wallet.public_address) {
-      setSendError("Cannot send to your own address");
-      return;
-    }
+    if (!holding || holding.amount < amount) { setSendError("Insufficient balance"); return; }
+    if (recipientAddress.trim() === wallet.public_address) { setSendError("Cannot send to your own address"); return; }
 
     setSendLoading(true);
 
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!user) {
-        setSendError("User not found");
-        setSendLoading(false);
-        return;
-      }
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { setSendError("User not found"); setSendLoading(false); return; }
 
       const cleanRecipientAddress = recipientAddress.trim();
 
@@ -210,22 +173,14 @@ export function PortfolioPage({ unitPrices }: PortfolioPageProps) {
         .eq("public_address", cleanRecipientAddress)
         .maybeSingle();
 
-      if (!recipientWallet) {
-        setSendError("Recipient wallet not found");
-        setSendLoading(false);
-        return;
-      }
+      if (!recipientWallet) { setSendError("Recipient wallet not found"); setSendLoading(false); return; }
 
       const { error: deductError } = await supabase
         .from("holdings")
         .update({ amount: holding.amount - amount })
         .eq("id", holding.id);
 
-      if (deductError) {
-        setSendError("Transaction failed");
-        setSendLoading(false);
-        return;
-      }
+      if (deductError) { setSendError("Transaction failed"); setSendLoading(false); return; }
 
       const { data: recipientHolding } = await supabase
         .from("holdings")
@@ -239,24 +194,14 @@ export function PortfolioPage({ unitPrices }: PortfolioPageProps) {
           .from("holdings")
           .update({ amount: recipientHolding.amount + amount })
           .eq("id", recipientHolding.id);
-
-        if (addError) {
-          setSendError("Transaction failed");
-          setSendLoading(false);
-          return;
-        }
+        if (addError) { setSendError("Transaction failed"); setSendLoading(false); return; }
       } else {
         const { error: insertHoldingError } = await supabase.from("holdings").insert({
           wallet_id: recipientWallet.id,
           symbol: sendSymbol,
           amount,
         });
-
-        if (insertHoldingError) {
-          setSendError("Transaction failed");
-          setSendLoading(false);
-          return;
-        }
+        if (insertHoldingError) { setSendError("Transaction failed"); setSendLoading(false); return; }
       }
 
       const { error: transactionError } = await supabase.from("transactions").insert({
@@ -268,11 +213,22 @@ export function PortfolioPage({ unitPrices }: PortfolioPageProps) {
         amount,
       });
 
-      if (transactionError) {
-        console.error("transactions insert failed:", transactionError);
-        setSendError(transactionError.message || "Transaction record failed");
-        setSendLoading(false);
-        return;
+      if (transactionError) { setSendError(transactionError.message || "Transaction record failed"); setSendLoading(false); return; }
+
+      // Notify sender
+      await supabase.from("notifications").insert({
+        user_id: user.id,
+        type: "send",
+        message: `You sent ${amount} ${sendSymbol} to ${cleanRecipientAddress.slice(0, 10)}...`
+      })
+
+      // Notify recipient
+      if (recipientWallet.user_id) {
+        await supabase.from("notifications").insert({
+          user_id: recipientWallet.user_id,
+          type: "receive",
+          message: `You received ${amount} ${sendSymbol}`
+        })
       }
 
       await saveContactLink(user.id, recipientWallet);
@@ -283,10 +239,9 @@ export function PortfolioPage({ unitPrices }: PortfolioPageProps) {
       setContactLabel("");
       setSaveAsContact(true);
       await loadWallet();
-      } catch (error: any) {
-        console.error("handleSend failed:", error);
-        setSendError(error?.message || "Transaction failed");
-      }
+    } catch (error: any) {
+      setSendError(error?.message || "Transaction failed");
+    }
 
     setSendLoading(false);
   };
@@ -298,53 +253,28 @@ export function PortfolioPage({ unitPrices }: PortfolioPageProps) {
   return (
     <div style={{ maxWidth: 700, margin: "0 auto", padding: "0 0 24px", position: "relative" }}>
       <div ref={workflowRef} className="card" style={{ marginBottom: "0.9rem" }}>
-        <p
-          style={{
-            margin: 0,
-            fontSize: "0.72rem",
-            color: "#666764",
-            textTransform: "uppercase",
-            letterSpacing: "0.06em",
-          }}
-        >
+        <p style={{ margin: 0, fontSize: "0.72rem", color: "#666764", textTransform: "uppercase", letterSpacing: "0.06em" }}>
           Your place in the flow
         </p>
         <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", alignItems: "center", marginTop: "0.65rem" }}>
-          <a href="#/deposit" className="chip secondary">
-            1 · Deposit GBP
-          </a>
+          <a href="#/deposit" className="chip secondary">1 · Deposit GBP</a>
           <span style={{ color: "#8a8a85" }}>→</span>
-          <a href="#/trade" className="chip secondary">
-            2 · Trade
-          </a>
+          <a href="#/trade" className="chip secondary">2 · Trade</a>
           <span style={{ color: "#8a8a85" }}>→</span>
-          <span className="chip" style={{ cursor: "default" }}>
-            3 · Portfolio
-          </span>
+          <span className="chip" style={{ cursor: "default" }}>3 · Portfolio</span>
         </div>
         <p className="live-note" style={{ marginTop: "0.75rem", marginBottom: 0 }}>
           This screen sums your <strong>crypto holdings in USD</strong> (not your GBP cash balance). Got no rows yet?{" "}
-          <a href="#/deposit" style={{ color: "#1f3c34", fontWeight: 600 }}>
-            Deposit
-          </a>
-          , then{" "}
-          <a href="#/trade" style={{ color: "#1f3c34", fontWeight: 600 }}>
-            Trade
-          </a>
-          .
+          <a href="#/deposit" style={{ color: "#1f3c34", fontWeight: 600 }}>Deposit</a>, then{" "}
+          <a href="#/trade" style={{ color: "#1f3c34", fontWeight: 600 }}>Trade</a>.
         </p>
       </div>
 
-      <div
-        ref={totalRef}
-        style={{ background: "#1B3A5C", color: "white", padding: "24px", borderRadius: "8px", marginBottom: "30px" }}
-      >
+      <div ref={totalRef} style={{ background: "#1B3A5C", color: "white", padding: "24px", borderRadius: "8px", marginBottom: "30px" }}>
         <p style={{ margin: 0, opacity: 0.7 }}>Total portfolio value (USD)</p>
         <h2 style={{ margin: "8px 0 0" }}>{formatUsd(totalUsd)}</h2>
         <p style={{ margin: "10px 0 0", fontSize: "13px", opacity: 0.85, lineHeight: 1.45 }}>
-          This is the sum of every row below: <strong>amount × today’s USD price</strong> for each coin. Dashboard uses
-          the same prices, so this number should match the <strong>Portfolio total</strong> and the{" "}
-          <strong>Holdings total</strong> there.
+          This is the sum of every row below: <strong>amount × today's USD price</strong> for each coin.
         </p>
         <p style={{ margin: "8px 0 0", fontSize: "13px", opacity: 0.6 }}>
           Practice wallet: {wallet?.public_address?.slice(0, 18)}…
@@ -355,30 +285,14 @@ export function PortfolioPage({ unitPrices }: PortfolioPageProps) {
         <button
           type="button"
           onClick={() => openModal("send")}
-          style={{
-            padding: "10px 24px",
-            background: "#1B3A5C",
-            color: "white",
-            border: "none",
-            borderRadius: "6px",
-            cursor: "pointer",
-            fontSize: "15px",
-          }}
+          style={{ padding: "10px 24px", background: "#1B3A5C", color: "white", border: "none", borderRadius: "6px", cursor: "pointer", fontSize: "15px" }}
         >
           Send
         </button>
         <button
           type="button"
           onClick={() => openModal("receive")}
-          style={{
-            padding: "10px 24px",
-            background: "#2E7D32",
-            color: "white",
-            border: "none",
-            borderRadius: "6px",
-            cursor: "pointer",
-            fontSize: "15px",
-          }}
+          style={{ padding: "10px 24px", background: "#2E7D32", color: "white", border: "none", borderRadius: "6px", cursor: "pointer", fontSize: "15px" }}
         >
           Receive
         </button>
@@ -386,8 +300,7 @@ export function PortfolioPage({ unitPrices }: PortfolioPageProps) {
 
       <h3 ref={holdingsRef}>My holdings</h3>
       <p style={{ margin: "0 0 14px", fontSize: "0.88rem", color: "#555" }}>
-        <strong>Units</strong> = how many coins the simulator stored for you. <strong>USD value</strong> = units × the
-        price shown. Prices refresh with the rest of the app.
+        <strong>Units</strong> = how many coins the simulator stored for you. <strong>USD value</strong> = units × the price shown.
       </p>
 
       <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
@@ -395,26 +308,14 @@ export function PortfolioPage({ unitPrices }: PortfolioPageProps) {
           const up = unitPx(h.symbol, unitPrices);
           const lineUsd = h.amount * up;
           return (
-            <div
-              key={h.id}
-              style={{
-                background: "#f5f5f5",
-                padding: "16px",
-                borderRadius: "8px",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-              }}
-            >
+            <div key={h.id} style={{ background: "#f5f5f5", padding: "16px", borderRadius: "8px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div>
                 <strong style={{ fontSize: "18px" }}>{h.symbol}</strong>
                 <p style={{ margin: "4px 0 0", color: "#666", fontSize: "14px" }}>{h.amount} units</p>
               </div>
               <div style={{ textAlign: "right" }}>
                 <strong>{formatUsd(lineUsd)}</strong>
-                <p style={{ margin: "4px 0 0", color: "#666", fontSize: "13px" }}>
-                  @ {formatUsd(up)} / unit
-                </p>
+                <p style={{ margin: "4px 0 0", color: "#666", fontSize: "13px" }}>@ {formatUsd(up)} / unit</p>
               </div>
             </div>
           );
@@ -422,136 +323,40 @@ export function PortfolioPage({ unitPrices }: PortfolioPageProps) {
       </div>
 
       {holdings.length > 0 ? (
-        <div
-          style={{
-            marginTop: 16,
-            padding: "12px 14px",
-            background: "#ecece8",
-            borderRadius: 8,
-            border: "1px solid #cdcdc7",
-            display: "flex",
-            justifyContent: "space-between",
-            fontWeight: 700,
-          }}
-        >
+        <div style={{ marginTop: 16, padding: "12px 14px", background: "#ecece8", borderRadius: 8, border: "1px solid #cdcdc7", display: "flex", justifyContent: "space-between", fontWeight: 700 }}>
           <span>Cross-check total</span>
           <span>{formatUsd(totalUsd)}</span>
         </div>
       ) : null}
 
       {showModal && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: "rgba(0,0,0,0.5)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1000,
-          }}
-        >
-          <div
-            style={{
-              background: "white",
-              padding: "30px",
-              borderRadius: "12px",
-              width: "420px",
-              position: "relative",
-            }}
-          >
-            <button
-              type="button"
-              onClick={() => setShowModal(false)}
-              style={{
-                position: "absolute",
-                top: "12px",
-                right: "16px",
-                background: "none",
-                border: "none",
-                fontSize: "20px",
-                cursor: "pointer",
-              }}
-            >
-              ✕
-            </button>
+        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}>
+          <div style={{ background: "white", padding: "30px", borderRadius: "12px", width: "420px", position: "relative" }}>
+            <button type="button" onClick={() => setShowModal(false)} style={{ position: "absolute", top: "12px", right: "16px", background: "none", border: "none", fontSize: "20px", cursor: "pointer" }}>✕</button>
 
             {modalType === "send" ? (
               <>
                 <h3>Send Crypto</h3>
-
                 {sendError && <p style={{ color: "red" }}>{sendError}</p>}
                 {sendSuccess && <p style={{ color: "green" }}>{sendSuccess}</p>}
 
-                <select
-                  value={sendSymbol}
-                  onChange={(e) => setSendSymbol(e.target.value)}
-                  style={{ display: "block", width: "100%", padding: "8px", marginBottom: "10px" }}
-                >
+                <select value={sendSymbol} onChange={(e) => setSendSymbol(e.target.value)} style={{ display: "block", width: "100%", padding: "8px", marginBottom: "10px" }}>
                   <option value="BTC">BTC</option>
                   <option value="ETH">ETH</option>
                   <option value="XRP">XRP</option>
                   <option value="USDT">USDT</option>
                 </select>
 
-                <input
-                  type="text"
-                  placeholder="Recipient address"
-                  value={recipientAddress}
-                  onChange={(e) => setRecipientAddress(e.target.value)}
-                  style={{ display: "block", width: "100%", padding: "8px", marginBottom: "10px" }}
-                />
+                <input type="text" placeholder="Recipient address" value={recipientAddress} onChange={(e) => setRecipientAddress(e.target.value)} style={{ display: "block", width: "100%", padding: "8px", marginBottom: "10px" }} />
+                <input type="number" placeholder="Amount" value={sendAmount} onChange={(e) => setSendAmount(e.target.value)} style={{ display: "block", width: "100%", padding: "8px", marginBottom: "10px" }} />
+                <input type="text" placeholder="Optional label (e.g. Alice / Rent / Team)" value={contactLabel} onChange={(e) => setContactLabel(e.target.value)} style={{ display: "block", width: "100%", padding: "8px", marginBottom: "10px" }} />
 
-                <input
-                  type="number"
-                  placeholder="Amount"
-                  value={sendAmount}
-                  onChange={(e) => setSendAmount(e.target.value)}
-                  style={{ display: "block", width: "100%", padding: "8px", marginBottom: "10px" }}
-                />
-
-                <input
-                  type="text"
-                  placeholder="Optional label (e.g. Alice / Rent / Team)"
-                  value={contactLabel}
-                  onChange={(e) => setContactLabel(e.target.value)}
-                  style={{ display: "block", width: "100%", padding: "8px", marginBottom: "10px" }}
-                />
-
-                <label
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "8px",
-                    fontSize: "14px",
-                    marginBottom: "16px",
-                  }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={saveAsContact}
-                    onChange={(e) => setSaveAsContact(e.target.checked)}
-                  />
+                <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "14px", marginBottom: "16px" }}>
+                  <input type="checkbox" checked={saveAsContact} onChange={(e) => setSaveAsContact(e.target.checked)} />
                   Save this recipient to Contacts
                 </label>
 
-                <button
-                  type="button"
-                  onClick={handleSend}
-                  disabled={sendLoading}
-                  style={{
-                    width: "100%",
-                    padding: "10px",
-                    background: "#1B3A5C",
-                    color: "white",
-                    border: "none",
-                    borderRadius: "6px",
-                    cursor: "pointer",
-                  }}
-                >
+                <button type="button" onClick={handleSend} disabled={sendLoading} style={{ width: "100%", padding: "10px", background: "#1B3A5C", color: "white", border: "none", borderRadius: "6px", cursor: "pointer" }}>
                   {sendLoading ? "Sending..." : "Confirm Send"}
                 </button>
               </>
@@ -559,31 +364,10 @@ export function PortfolioPage({ unitPrices }: PortfolioPageProps) {
               <>
                 <h3>Receive Crypto</h3>
                 <p>Share your wallet address to receive crypto:</p>
-                <div
-                  style={{
-                    background: "#eee",
-                    padding: "12px",
-                    borderRadius: "6px",
-                    wordBreak: "break-all",
-                    fontSize: "13px",
-                  }}
-                >
+                <div style={{ background: "#eee", padding: "12px", borderRadius: "6px", wordBreak: "break-all", fontSize: "13px" }}>
                   {wallet?.public_address}
                 </div>
-                <button
-                  type="button"
-                  onClick={() => navigator.clipboard.writeText(wallet?.public_address)}
-                  style={{
-                    marginTop: "12px",
-                    width: "100%",
-                    padding: "10px",
-                    background: "#2E7D32",
-                    color: "white",
-                    border: "none",
-                    borderRadius: "6px",
-                    cursor: "pointer",
-                  }}
-                >
+                <button type="button" onClick={() => navigator.clipboard.writeText(wallet?.public_address)} style={{ marginTop: "12px", width: "100%", padding: "10px", background: "#2E7D32", color: "white", border: "none", borderRadius: "6px", cursor: "pointer" }}>
                   Copy Address
                 </button>
               </>
@@ -593,56 +377,16 @@ export function PortfolioPage({ unitPrices }: PortfolioPageProps) {
       )}
 
       {wallet && tour.step === 0 ? (
-        <WalkthroughPopup
-          anchorRef={workflowRef}
-          title="End of the flow"
-          body={withPersonalizedLead(
-            profile,
-            "portfolio",
-            "Deposit adds GBP. Trade turns GBP into crypto (or back). Portfolio is where you review what you own, valued in USD."
-          )}
-          onClose={tour.finish}
-          onNext={tour.next}
-          showNext
-          stepLabel="1 / 4"
-        />
+        <WalkthroughPopup anchorRef={workflowRef} title="End of the flow" body={withPersonalizedLead(profile, "portfolio", "Deposit adds GBP. Trade turns GBP into crypto (or back). Portfolio is where you review what you own, valued in USD.")} onClose={tour.finish} onNext={tour.next} showNext stepLabel="1 / 4" />
       ) : null}
-
       {wallet && tour.step === 1 ? (
-        <WalkthroughPopup
-          anchorRef={totalRef}
-          title="Total in dollars"
-          body="Pretend portfolio only. This number is the sum of every coin row below (amount × price). Matches Dashboard."
-          onClose={tour.finish}
-          onNext={tour.next}
-          showNext
-          stepLabel="2 / 4"
-        />
+        <WalkthroughPopup anchorRef={totalRef} title="Total in dollars" body="Pretend portfolio only. This number is the sum of every coin row below (amount × price). Matches Dashboard." onClose={tour.finish} onNext={tour.next} showNext stepLabel="2 / 4" />
       ) : null}
-
       {wallet && tour.step === 2 ? (
-        <WalkthroughPopup
-          anchorRef={actionsRef}
-          title="Send / Receive"
-          body="Send moves one asset to another user’s address in this app. Now you can also save that recipient into Contacts."
-          onClose={tour.finish}
-          onNext={tour.next}
-          showNext
-          stepLabel="3 / 4"
-        />
+        <WalkthroughPopup anchorRef={actionsRef} title="Send / Receive" body="Send moves one asset to another user's address in this app. Now you can also save that recipient into Contacts." onClose={tour.finish} onNext={tour.next} showNext stepLabel="3 / 4" />
       ) : null}
-
       {wallet && tour.step === 3 ? (
-        <WalkthroughPopup
-          anchorRef={holdingsRef}
-          title="Each row"
-          body="Left = how many coins you have. Right = that stack in USD. Add the right side → equals the blue total."
-          onClose={tour.finish}
-          onNext={tour.finish}
-          showNext
-          nextLabel="Done"
-          stepLabel="4 / 4"
-        />
+        <WalkthroughPopup anchorRef={holdingsRef} title="Each row" body="Left = how many coins you have. Right = that stack in USD. Add the right side → equals the blue total." onClose={tour.finish} onNext={tour.finish} showNext nextLabel="Done" stepLabel="4 / 4" />
       ) : null}
     </div>
   );
