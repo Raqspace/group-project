@@ -2,3 +2,11 @@ node_modules/
 dist/.env
 coverage/
 
+node_modules/
+dist/
+.env
+.env.local
+.env.production
+supabase/.temp/
+.DS_Store
+.vscode/
