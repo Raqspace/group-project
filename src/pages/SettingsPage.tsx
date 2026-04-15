@@ -16,10 +16,14 @@ export function SettingsPage() {
   useAutoStartPageTour("settings", startTour);
 
   const [currentEmail, setCurrentEmail] = useState("");
+  const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
 
   const [passwordMsg, setPasswordMsg] = useState("");
   const [loadingPassword, setLoadingPassword] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [resetMsg, setResetMsg] = useState("");
+  const [sendingReset, setSendingReset] = useState(false);
 
   const [priceAlerts, setPriceAlerts] = useState(
     localStorage.getItem("settings.priceAlerts") === "true"
@@ -62,33 +66,88 @@ export function SettingsPage() {
 
   const handleUpdatePassword = async () => {
     setPasswordMsg("");
+    setResetMsg("");
+    setShowForgotPassword(false);
 
-    const trimmedPassword = newPassword.trim();
+    const trimmedCurrentPassword = currentPassword.trim();
+    const trimmedNewPassword = newPassword.trim();
 
-    if (!trimmedPassword) {
+    if (!trimmedCurrentPassword) {
+      setPasswordMsg("Please enter your current password.");
+      return;
+    }
+
+    if (!trimmedNewPassword) {
       setPasswordMsg("Please enter a new password.");
       return;
     }
 
-    if (trimmedPassword.length < 6) {
+    if (trimmedNewPassword.length < 6) {
       setPasswordMsg("Password should be at least 6 characters.");
+      return;
+    }
+
+    if (trimmedCurrentPassword === trimmedNewPassword) {
+      setPasswordMsg("Your new password must be different from your current password.");
+      return;
+    }
+
+    if (!currentEmail) {
+      setPasswordMsg("Could not verify your account email.");
       return;
     }
 
     setLoadingPassword(true);
 
-    const { error } = await supabase.auth.updateUser({
-      password: trimmedPassword,
+    const { error: verifyError } = await supabase.auth.signInWithPassword({
+      email: currentEmail,
+      password: trimmedCurrentPassword,
     });
 
-    if (error) {
-      setPasswordMsg(`Error: ${error.message}`);
+    if (verifyError) {
+      setPasswordMsg("Current password is incorrect.");
+      setShowForgotPassword(true);
+      setLoadingPassword(false);
+      return;
+    }
+
+    const { error: updateError } = await supabase.auth.updateUser({
+      password: trimmedNewPassword,
+    });
+
+    if (updateError) {
+      setPasswordMsg(`Error: ${updateError.message}`);
     } else {
       setPasswordMsg("Password updated successfully.");
+      setCurrentPassword("");
       setNewPassword("");
+      setShowForgotPassword(false);
     }
 
     setLoadingPassword(false);
+  };
+
+  const handleForgotPassword = async () => {
+    setResetMsg("");
+
+    if (!currentEmail) {
+      setResetMsg("Could not find your account email.");
+      return;
+    }
+
+    setSendingReset(true);
+
+    const { error } = await supabase.auth.resetPasswordForEmail(currentEmail, {
+      redirectTo: `${window.location.origin}/#/login`,
+    });
+
+    if (error) {
+      setResetMsg(`Error: ${error.message}`);
+    } else {
+      setResetMsg("Password reset email sent. Please check your inbox.");
+    }
+
+    setSendingReset(false);
   };
 
   const inputStyle: React.CSSProperties = {
@@ -144,6 +203,20 @@ export function SettingsPage() {
           </div>
 
           <div>
+            <label htmlFor="settings-current-password" style={{ fontWeight: 600 }}>
+              Current password
+            </label>
+            <input
+              id="settings-current-password"
+              type="password"
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              placeholder="Enter your current password"
+              style={inputStyle}
+            />
+          </div>
+
+          <div>
             <label htmlFor="settings-new-password" style={{ fontWeight: 600 }}>
               New password
             </label>
@@ -165,6 +238,21 @@ export function SettingsPage() {
               {loadingPassword ? "Updating..." : "Update Password"}
             </button>
             {passwordMsg ? <p className="live-note">{passwordMsg}</p> : null}
+
+            {showForgotPassword ? (
+              <div style={{ marginTop: "0.5rem" }}>
+                <button
+                  type="button"
+                  onClick={handleForgotPassword}
+                  disabled={sendingReset}
+                  className="chip"
+                >
+                  {sendingReset ? "Sending..." : "Forgot password?"}
+                </button>
+              </div>
+            ) : null}
+
+            {resetMsg ? <p className="live-note">{resetMsg}</p> : null}
           </div>
         </div>
       </div>
@@ -224,7 +312,7 @@ export function SettingsPage() {
         <WalkthroughPopup
           anchorRef={accountRef}
           title="Account settings"
-          body="Update your email and password here. Email changes may require inbox confirmation before they take effect."
+          body="Review your account details here and update your password when needed."
           onClose={tour.finish}
           onNext={tour.next}
           showNext
