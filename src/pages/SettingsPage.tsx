@@ -16,12 +16,9 @@ export function SettingsPage() {
   useAutoStartPageTour("settings", startTour);
 
   const [currentEmail, setCurrentEmail] = useState("");
-  const [newEmail, setNewEmail] = useState("");
   const [newPassword, setNewPassword] = useState("");
 
-  const [emailMsg, setEmailMsg] = useState("");
   const [passwordMsg, setPasswordMsg] = useState("");
-  const [loadingEmail, setLoadingEmail] = useState(false);
   const [loadingPassword, setLoadingPassword] = useState(false);
 
   const [priceAlerts, setPriceAlerts] = useState(
@@ -39,7 +36,6 @@ export function SettingsPage() {
       const { data, error } = await supabase.auth.getUser();
       if (!error && data.user?.email) {
         setCurrentEmail(data.user.email);
-        setNewEmail(data.user.email);
       }
     })();
   }, []);
@@ -63,36 +59,6 @@ export function SettingsPage() {
       block: "center",
     });
   }, [tour.step]);
-
-  const handleUpdateEmail = async () => {
-    setEmailMsg("");
-
-    const trimmedEmail = newEmail.trim();
-
-    if (!trimmedEmail) {
-      setEmailMsg("Please enter a new email address.");
-      return;
-    }
-
-    if (trimmedEmail === currentEmail) {
-      setEmailMsg("That is already your current email.");
-      return;
-    }
-
-    setLoadingEmail(true);
-
-    const { error } = await supabase.auth.updateUser({
-      email: trimmedEmail,
-    });
-
-    if (error) {
-      setEmailMsg(`Error: ${error.message}`);
-    } else {
-      setEmailMsg("Email update requested. Please check your inbox for confirmation.");
-    }
-
-    setLoadingEmail(false);
-  };
 
   const handleUpdatePassword = async () => {
     setPasswordMsg("");
@@ -175,30 +141,6 @@ export function SettingsPage() {
               disabled
               style={{ ...inputStyle, opacity: 0.8 }}
             />
-          </div>
-
-          <div>
-            <label htmlFor="settings-new-email" style={{ fontWeight: 600 }}>
-              New email
-            </label>
-            <input
-              id="settings-new-email"
-              type="email"
-              value={newEmail}
-              onChange={(e) => setNewEmail(e.target.value)}
-              placeholder="Enter your new email"
-              style={inputStyle}
-            />
-            <button
-              type="button"
-              className="chip"
-              onClick={handleUpdateEmail}
-              disabled={loadingEmail}
-              style={{ marginTop: "0.75rem" }}
-            >
-              {loadingEmail ? "Updating..." : "Update Email"}
-            </button>
-            {emailMsg ? <p className="live-note">{emailMsg}</p> : null}
           </div>
 
           <div>
