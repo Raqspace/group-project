@@ -12,7 +12,31 @@ import type { UnitPricesUsd } from "../utils/unitPrices";
 import { portfolioTotalUsd } from "../utils/unitPrices";
 
 const formatUsd = (value: number) =>
-  new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
+  new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
+
+const formatGbp = (value: number) =>
+  new Intl.NumberFormat("en-GB", {
+    style: "currency",
+    currency: "GBP",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
+
+const formatDateTime = (value?: string) => {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+
+  return new Intl.DateTimeFormat("en-GB", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(date);
+};
 
 const SPOT_SYMBOLS: (keyof LivePricesUsd)[] = ["BTC", "ETH", "USDT"];
 
@@ -24,6 +48,15 @@ type DashboardPageProps = {
 };
 
 type HoldingRow = { id: string; symbol: string; amount: number };
+
+type RecentTradeRow = {
+  id: string;
+  type: "buy" | "sell";
+  asset: string;
+  amount_gbp: number;
+  amount_btc: number;
+  created_at?: string;
+};
 
 function downsamplePrices(points: [number, number][], maxPoints: number): [number, number][] {
   if (points.length <= maxPoints) return points;
@@ -44,11 +77,16 @@ export function DashboardPage({ prices, unitPrices, lastUpdated, priceError }: D
   const statRef = useRef<HTMLElement>(null);
   const chartRef = useRef<HTMLElement>(null);
   const holdingsRef = useRef<HTMLElement>(null);
+
   const [holdings, setHoldings] = useState<HoldingRow[]>([]);
   const [dashboardLoading, setDashboardLoading] = useState(true);
   const [btcSeries, setBtcSeries] = useState<[number, number][]>([]);
   const [btcChartLoading, setBtcChartLoading] = useState(true);
   const [btcChartError, setBtcChartError] = useState("");
+
+  const [recentTrades, setRecentTrades] = useState<RecentTradeRow[]>([]);
+  const [recentTradesLoading, setRecentTradesLoading] = useState(true);
+  const [recentTradesError, setRecentTradesError] = useState("");
 
   const { profile } = useTutorialProfile();
 
@@ -68,6 +106,7 @@ export function DashboardPage({ prices, unitPrices, lastUpdated, priceError }: D
       const {
         data: { user },
       } = await supabase.auth.getUser();
+
       if (!user || cancelled) {
         setDashboardLoading(false);
         return;
@@ -113,8 +152,48 @@ export function DashboardPage({ prices, unitPrices, lastUpdated, priceError }: D
       }
     };
 
+    const loadRecentTrades = async () => {
+      setRecentTradesLoading(true);
+      setRecentTradesError("");
+
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        if (!user || cancelled) {
+          if (!cancelled) {
+            setRecentTrades([]);
+            setRecentTradesLoading(false);
+          }
+          return;
+        }
+
+        const { data, error } = await supabase
+          .from("trades")
+          .select("id, type, asset, amount_gbp, amount_btc, created_at")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false })
+          .limit(1);
+
+        if (error) throw error;
+
+        if (!cancelled) {
+          setRecentTrades((data as RecentTradeRow[]) ?? []);
+        }
+      } catch {
+        if (!cancelled) {
+          setRecentTradesError("Could not load recent transactions.");
+          setRecentTrades([]);
+        }
+      } finally {
+        if (!cancelled) setRecentTradesLoading(false);
+      }
+    };
+
     loadHoldings();
     loadBtcChart();
+    loadRecentTrades();
 
     return () => {
       cancelled = true;
@@ -131,6 +210,7 @@ export function DashboardPage({ prices, unitPrices, lastUpdated, priceError }: D
             Sum of every coin below × today’s USD price. Same math as Portfolio.
           </p>
         </article>
+
         {SPOT_SYMBOLS.map((symbol) => (
           <article key={symbol} className="stat-card">
             <p>{symbol} market price</p>
@@ -150,15 +230,19 @@ export function DashboardPage({ prices, unitPrices, lastUpdated, priceError }: D
             price on the open market over the last week. That line is for learning what charts look like. It is not your balance and
             it does not change when you press Send.
           </p>
+
           {dashboardLoading ? (
             <p className="live-note">Loading your holdings…</p>
           ) : (
             <PortfolioAllocationBar holdings={holdings} prices={priceMapForHoldings} />
           )}
+
           <BtcSparkline7d points={btcSeries} loading={btcChartLoading} error={btcChartError} />
+
           <p className="live-note" style={{ marginTop: 12 }}>
             {lastUpdated ? `App price feed updated ${lastUpdated.toLocaleTimeString()}` : "Loading live prices..."}
           </p>
+
           {priceError ? <p className="live-error">{priceError}</p> : null}
         </article>
 
@@ -167,6 +251,7 @@ export function DashboardPage({ prices, unitPrices, lastUpdated, priceError }: D
           <p style={{ margin: "0 0 10px", fontSize: "0.82rem", color: "#656663" }}>
             Left: how many coins you own. Right: that stack in USD (amount × price). Add the right column: it equals Portfolio total.
           </p>
+
           {dashboardLoading ? (
             <p className="live-note">Loading…</p>
           ) : holdings.length === 0 ? (
@@ -198,6 +283,7 @@ export function DashboardPage({ prices, unitPrices, lastUpdated, priceError }: D
                   );
                 })}
               </ul>
+
               <div
                 style={{
                   marginTop: 12,
@@ -218,22 +304,62 @@ export function DashboardPage({ prices, unitPrices, lastUpdated, priceError }: D
       </section>
 
       <section className="bottom-row card">
-        <h3>Recent Transactions</h3>
-        <p className="live-note" style={{ marginTop: 0 }}>
-          Empty until your app records transfers. Sends from Portfolio update holdings, not this table yet.
-        </p>
-        <table>
-          <thead>
-            <tr>
-              <th>Type</th>
-              <th>Date</th>
-              <th>Asset</th>
-              <th>Amount</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody />
-        </table>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+          <div>
+            <h3 style={{ marginBottom: 4 }}>Recent Transactions</h3>
+            <p className="live-note" style={{ marginTop: 0 }}>
+              Your most recent completed trade.
+            </p>
+          </div>
+          <a href="#/transactions" className="chip secondary" style={{ textDecoration: "none" }}>
+            View full history
+          </a>
+        </div>
+
+        {recentTradesLoading ? (
+          <p className="live-note" style={{ marginTop: 12 }}>
+            Loading recent transaction...
+          </p>
+        ) : recentTradesError ? (
+          <p className="live-error" style={{ marginTop: 12 }}>
+            {recentTradesError}
+          </p>
+        ) : recentTrades.length === 0 ? (
+          <p className="live-note" style={{ marginTop: 12 }}>
+            No trades yet. Go to Trade to make your first buy or sell.
+          </p>
+        ) : (
+          <table>
+            <thead>
+              <tr>
+                <th>Type</th>
+                <th>Date</th>
+                <th>Asset</th>
+                <th>Amount</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(() => {
+                const trade = recentTrades[0];
+                return (
+                  <tr key={trade.id}>
+                    <td style={{ textTransform: "capitalize", fontWeight: 600 }}>
+                      {trade.type}
+                    </td>
+                    <td>{formatDateTime(trade.created_at)}</td>
+                    <td>{trade.asset}</td>
+                    <td>
+                      {Number(trade.amount_btc).toFixed(trade.asset === "XRP" ? 2 : 6)} {trade.asset} ·{" "}
+                      {formatGbp(Number(trade.amount_gbp))}
+                    </td>
+                    <td>Completed</td>
+                  </tr>
+                );
+              })()}
+            </tbody>
+          </table>
+        )}
       </section>
 
       {tour.step === 0 ? (
@@ -251,6 +377,7 @@ export function DashboardPage({ prices, unitPrices, lastUpdated, priceError }: D
           stepLabel="1 / 3"
         />
       ) : null}
+
       {tour.step === 1 ? (
         <WalkthroughPopup
           anchorRef={chartRef}
@@ -262,6 +389,7 @@ export function DashboardPage({ prices, unitPrices, lastUpdated, priceError }: D
           stepLabel="2 / 3"
         />
       ) : null}
+
       {tour.step === 2 ? (
         <WalkthroughPopup
           anchorRef={holdingsRef}
