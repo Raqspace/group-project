@@ -77,6 +77,7 @@ export function DashboardPage({ prices, unitPrices, lastUpdated, priceError }: D
   const statRef = useRef<HTMLElement>(null);
   const chartRef = useRef<HTMLElement>(null);
   const holdingsRef = useRef<HTMLElement>(null);
+  const recentTransactionsRef = useRef<HTMLElement>(null);
 
   const [holdings, setHoldings] = useState<HoldingRow[]>([]);
   const [dashboardLoading, setDashboardLoading] = useState(true);
@@ -303,7 +304,7 @@ export function DashboardPage({ prices, unitPrices, lastUpdated, priceError }: D
         </article>
       </section>
 
-      <section className="bottom-row card">
+      <section ref={recentTransactionsRef} className="bottom-row card">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
           <div>
             <h3 style={{ marginBottom: 4 }}>Recent Transactions</h3>
@@ -374,7 +375,7 @@ export function DashboardPage({ prices, unitPrices, lastUpdated, priceError }: D
           onClose={tour.finish}
           onNext={tour.next}
           showNext
-          stepLabel="1 / 3"
+          stepLabel="1 / 4"
         />
       ) : null}
 
@@ -386,7 +387,7 @@ export function DashboardPage({ prices, unitPrices, lastUpdated, priceError }: D
           onClose={tour.finish}
           onNext={tour.next}
           showNext
-          stepLabel="2 / 3"
+          stepLabel="2 / 4"
         />
       ) : null}
 
@@ -396,10 +397,22 @@ export function DashboardPage({ prices, unitPrices, lastUpdated, priceError }: D
           title="This list is the proof"
           body="Each row: units × price = dollars on the right. Add those dollars and you get the big total above (and Portfolio’s total too)."
           onClose={tour.finish}
+          onNext={tour.next}
+          showNext
+          stepLabel="3 / 4"
+        />
+      ) : null}
+
+      {tour.step === 3 ? (
+        <WalkthroughPopup
+          anchorRef={recentTransactionsRef}
+          title="Recent transactions"
+          body="This section shows your latest completed trade activity from the simulator. Use it for a quick check here, or open full History to review more details."
+          onClose={tour.finish}
           onNext={tour.finish}
           showNext
           nextLabel="Done"
-          stepLabel="3 / 3"
+          stepLabel="4 / 4"
         />
       ) : null}
     </>
