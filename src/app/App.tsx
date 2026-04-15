@@ -205,7 +205,6 @@ function MainApp({ route }: MainAppProps) {
                 </button>
               ) : null}
               <NotificationCenter />
-              <button type="button" className="chip secondary">Settings</button>
             </div>
           </header>
           {renderPage()}
