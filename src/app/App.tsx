@@ -56,6 +56,7 @@ function MainApp({ route }: MainAppProps) {
   const [xrpUsd, setXrpUsd] = useState(0);
   const [user, setUser] = useState<any>(null);
   const [authChecked, setAuthChecked] = useState(false);
+  const [hasWallet, setHasWallet] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -74,6 +75,18 @@ function MainApp({ route }: MainAppProps) {
     const applySession = async (sessionUser: typeof user) => {
       if (cancelled) return;
       setUser(sessionUser);
+
+      if (sessionUser) {
+        const { data: walletData } = await supabase
+          .from("Wallet")
+          .select("id")
+          .eq("user_id", sessionUser.id)
+          .single();
+        if (!cancelled) setHasWallet(!!walletData);
+      } else {
+        setHasWallet(false);
+      }
+
       setAuthChecked(true);
     };
 
@@ -148,7 +161,7 @@ function MainApp({ route }: MainAppProps) {
             {user ? (
               <>
                 <button onClick={handleLogout}>Logout</button>
-                {NAV.map((item) => (
+                {NAV.filter(item => item.key !== "wallet" || !hasWallet).map((item) => (
                   <a key={item.key} href={`#/${item.key}`} className={route === item.key ? "active" : ""}>
                     {item.label}
                   </a>
