@@ -1,9 +1,12 @@
 # Crypto Wallet group 49
 
 ## Overview
-CryptoWallet is a web-based instructional simulator designed to help users learn cryptocurrency wallet workflows in a safe, simulated environment.  
 
-The application allows users to practice key actions such as depositing funds, trading assets, managing a portfolio, and interacting with wallet features without using real money.
+CryptoWallet is a web-based cryptocurrency hot wallet that allows users to manage digital assets through an intuitive interface.  
+
+The application enables users to perform core wallet operations such as depositing funds, trading cryptocurrencies, managing a portfolio, and tracking transaction history. 
+
+The system also includes features such as price alerts, contact management, and customizable notification settings to enhance usability and user control.
 
 ---
 
