@@ -73,3 +73,14 @@ http://localhost:5173/
 - Manage contacts for frequent interactions
 - Set up price alerts for selected assets
 - Update account settings and notification preferences
+
+---
+
+## Authors
+- Raqiya Ali
+- Hanad Bihi
+- Zhang Zi Xuan
+- Ecem Lara Koymen
+- Ali Kavrak
+- Nurazuddin Ahmed
+- Nurtay Mergaliyev
