@@ -59,3 +59,17 @@ npm run dev
 ```bash
 http://localhost:5173/
 ```
+
+---
+
+##Usage
+- Create an account or log in
+- View the dashboard for portfolio summary and live prices
+- Deposit GBP into your account
+- Trade cryptocurrencies using the trade interface
+- View and manage your portfolio holdings
+- Track transactions in the history page
+- Use the wallet page to access your address and recovery phrase
+- Manage contacts for frequent interactions
+- Set up price alerts for selected assets
+- Update account settings and notification preferences
