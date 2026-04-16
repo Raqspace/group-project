@@ -1,7 +1,5 @@
 # Crypto Wallet group 49
 
-# CryptoWallet Simulator
-
 ## Overview
 CryptoWallet is a web-based instructional simulator designed to help users learn cryptocurrency wallet workflows in a safe, simulated environment.  
 
