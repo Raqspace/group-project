@@ -62,7 +62,7 @@ http://localhost:5173/
 
 ---
 
-##Usage
+## Usage
 - Create an account or log in
 - View the dashboard for portfolio summary and live prices
 - Deposit GBP into your account
