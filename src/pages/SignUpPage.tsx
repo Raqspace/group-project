@@ -10,7 +10,6 @@ const GOAL_OPTIONS: { value: PrimaryGoal; label: string; hint: string }[] = [
   { value: "track", label: "Track value", hint: "Tips emphasize Dashboard & Portfolio totals" },
 ];
 
-/** Parse `#/signup?goal=trade` from the hash (path is stripped by the router; query remains on `location.hash`). */
 function readGoalFromHash(): PrimaryGoal {
   const raw = window.location.hash.replace(/^#\/?/, "").toLowerCase();
   const query = raw.split("?")[1] ?? "";
@@ -28,7 +27,6 @@ export function SignUpPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
-  /** Shown on the email-confirmation welcome screen so the chosen name is visible immediately. */
   const [welcomeName, setWelcomeName] = useState<string | null>(null);
 
   const trimmedName = useMemo(() => displayName.trim(), [displayName]);
@@ -62,7 +60,6 @@ export function SignUpPage() {
       return;
     }
 
-    /** Immediate session (e.g. email confirmation off): go straight into the app. */
     if (data.session && data.user) {
       hydrateTutorialProfileFromUser(data.user);
       window.location.hash = "#/dashboard";
@@ -70,9 +67,6 @@ export function SignUpPage() {
       return;
     }
 
-    /**
-     * Email-confirmation flow: no session yet — stash answers locally so first login can merge into `user_metadata`.
-     */
     if (data.user?.email) {
       stashSignupIntentForFirstLogin({
         email: data.user.email,

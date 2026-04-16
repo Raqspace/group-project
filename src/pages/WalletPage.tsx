@@ -176,12 +176,6 @@ export function WalletPage() {
       return;
     }
 
-    await supabase.from("holdings").insert([
-      { wallet_id: newWallet.id, symbol: "BTC", amount: 0.001 },
-      { wallet_id: newWallet.id, symbol: "ETH", amount: 1.5 },
-      { wallet_id: newWallet.id, symbol: "XRP", amount: 100 },
-    ]);
-
     setLoading(false);
     setSuccess("Wallet created.");
     setRevealPhrase(phrase);

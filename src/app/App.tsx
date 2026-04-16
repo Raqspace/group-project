@@ -37,6 +37,8 @@ const NAV = [
 function getRouteFromHash() {
   const raw = window.location.hash.replace(/^#\/?/, "").trim().toLowerCase();
   const path = raw.split("?")[0]?.trim() ?? "";
+  // If hash contains access_token it's a Supabase auth redirect, don't treat as a route
+  if (raw.includes("access_token=")) return "home";
   return path || "home";
 }
 
@@ -205,6 +207,7 @@ function MainApp({ route }: MainAppProps) {
                 </button>
               ) : null}
               <NotificationCenter />
+              <button type="button" className="chip secondary">Settings</button>
             </div>
           </header>
           {renderPage()}
@@ -216,6 +219,16 @@ function MainApp({ route }: MainAppProps) {
 
 export function App() {
   const [route, setRoute] = useState(getRouteFromHash());
+
+  // Handle Supabase email confirmation redirect
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_IN" && session) {
+        window.location.hash = "#/dashboard";
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, []);
 
   useEffect(() => {
     const onHashChange = () => setRoute(getRouteFromHash());
